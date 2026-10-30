@@ -68,7 +68,9 @@ class AppUpdater(private val activity: Activity, private val api: Api) {
                 val installed = activity.packageManager.getPackageInfo(activity.packageName, PackageManager.GET_SIGNATURES)
                 val version = if (Build.VERSION.SDK_INT >= 28) archive.longVersionCode else archive.versionCode.toLong()
                 require(archive.packageName == activity.packageName && version == data.getLong("versionCode") && version > BuildConfig.VERSION_CODE) { "安装包版本或包名不符" }
-                require(archive.signatures?.isNotEmpty() == true && archive.signatures.toSet() == installed.signatures?.toSet()) { "应用签名不同，已阻止更新" }
+                val archiveSignatures=archive.signatures?.toSet().orEmpty()
+                val installedSignatures=installed.signatures?.toSet().orEmpty()
+                require(archiveSignatures.isNotEmpty() && archiveSignatures == installedSignatures) { "应用签名不同，已阻止更新" }
                 prefs.edit().putString("pending_apk", file.absolutePath).apply()
                 activity.runOnUiThread { progress.dismiss(); resumeInstall() }
             } catch (e: Exception) {
