@@ -21,4 +21,6 @@
 
 新增一次针对性集成验证通过：Web/Android 分流到各自仓库、未登录/未授权拒绝、他人截图拒绝、截图专用随机链接可显示但普通图片地址仍私有、草稿加密、明确失败后截图链接撤销，以及超时恢复不重复创建 Issue。使用临时 D1 与模拟 GitHub，没有向公开仓库发测试 Issue。Web JavaScript 语法与 Wrangler dry-run 打包通过；本轮未重复执行原有全套测试。
 
-Android 反馈版本将在本次代码上传后由已有签名发布工作流构建；最终版本以 Releases/latest 为准。真实自动创建 Issue 仍需 Worker 端配置具有两个目标仓库 Issues write 权限的专用 token，并完成 GitHub OAuth 登录配置。
+Android 反馈版本 1.0.6 已完成签名构建并发布： https://github.com/zxymiku/guet-food-share/releases/tag/android-v1.0.6 。构建工作流：https://github.com/zxymiku/guet-food-share/actions/runs/41022277851 。真实自动创建 Issue 仍需 Worker 端配置具有两个目标仓库 Issues write 权限的专用 token，并完成 GitHub OAuth 登录配置。
+
+Web 反馈迁移和 Workers 部署已完成；线上 HTML 包含反馈表单，配置接口返回 Web/Android 的正确 Issues 地址。当前 automaticReady=false、screenshotsReady=false，需配置 GitHub 登录与服务端 Issues/媒体上传权限后才能真实自动发布。浏览器交互验收工具连接超时，本轮未完成页面交互验收；没有为此重复运行旧测试。
