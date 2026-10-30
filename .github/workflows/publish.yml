@@ -1,0 +1,27 @@
+name: Publish reviewed food places
+on:
+  push:
+    branches: [main]
+    paths: ['data/places/**']
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: publish-food
+  cancel-in-progress: false
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: true
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: node scripts/validate-places.mjs
+      - run: node scripts/publish-places.mjs
+        env:
+          WORKER_URL: ${{ vars.WORKER_URL }}
+          PIPELINE_SECRET: ${{ secrets.PIPELINE_SECRET }}

@@ -1,0 +1,26 @@
+name: Normalize food submission
+on:
+  repository_dispatch:
+    types: [food-submitted]
+permissions:
+  contents: write
+  pull-requests: write
+concurrency:
+  group: normalize-${{ github.event.client_payload.id }}
+  cancel-in-progress: false
+jobs:
+  normalize:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: true
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: node scripts/process-submission.mjs
+        env:
+          SUBMISSION_ID: ${{ github.event.client_payload.id }}
+          GITHUB_TOKEN: ${{ secrets.SUBMISSION_BOT_TOKEN || github.token }}
+          WORKER_URL: ${{ vars.WORKER_URL }}
+          PIPELINE_SECRET: ${{ secrets.PIPELINE_SECRET }}
