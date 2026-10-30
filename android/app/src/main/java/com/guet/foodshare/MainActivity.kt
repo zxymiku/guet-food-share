@@ -36,6 +36,7 @@ class MainActivity : Activity() {
     private lateinit var store: SecureStore
     private lateinit var api: Api
     private lateinit var updater: AppUpdater
+    private lateinit var feedback: FeedbackController
     private lateinit var root: LinearLayout
     private lateinit var mapHost: FrameLayout
     private lateinit var list: LinearLayout
@@ -76,6 +77,7 @@ class MainActivity : Activity() {
         window.statusBarColor = Color.rgb(252,251,247)
         window.decorView.systemUiVisibility = View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR
         store = SecureStore(this); api = Api { store.token }; updater = AppUpdater(this,api)
+        feedback = FeedbackController(this,api,{store.token!=null},{uri->encodePhoto(uri)})
         root = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; setBackgroundColor(Color.rgb(252,251,247)); setPadding(dp(12),dp(8),dp(12),0) }
         root.setOnApplyWindowInsetsListener { view, insets -> view.setPadding(dp(12), dp(8) + insets.systemWindowInsetTop, dp(12), insets.systemWindowInsetBottom); insets }
         setContentView(root)
@@ -85,7 +87,7 @@ class MainActivity : Activity() {
         top.addView(loginButton); root.addView(top)
         root.addView(text("桂林电子科技大学 · 校园好味道", 18f))
         val controls = LinearLayout(this)
-        controls.addView(button("＋ 分享") { share() }); controls.addView(button("我的投稿") { mine() }); controls.addView(button("◎ 定位") { locate() }); root.addView(controls)
+        controls.addView(button("＋ 分享") { share() }); controls.addView(button("我的投稿") { mine() }); controls.addView(button("◎ 定位") { locate() }); controls.addView(button("反馈") { feedback.show() }); root.addView(HorizontalScrollView(this).apply{isHorizontalScrollBarEnabled=false;addView(controls)})
         mapHost = FrameLayout(this); root.addView(mapHost, LinearLayout.LayoutParams(-1,0,1.1f))
         mapHost.addView(text("同意地图服务说明后可显示高德地图。\n无需定位授权，也能手动选点。"))
         val search = EditText(this).apply { hint = "搜索店名、地址"; textSize = 13f; setSingleLine(); addTextChangedListener(object : android.text.TextWatcher {
@@ -220,7 +222,7 @@ class MainActivity : Activity() {
     }
     @Deprecated("Framework photo picker callback")
     override fun onActivityResult(requestCode: Int,resultCode: Int,data: Intent?) {
-        super.onActivityResult(requestCode,resultCode,data); if((requestCode!=100&&requestCode!=101)||resultCode!=RESULT_OK)return
+        super.onActivityResult(requestCode,resultCode,data); if(requestCode==FeedbackController.PICK_SCREENSHOTS){feedback.onPicked(resultCode,data);return}; if((requestCode!=100&&requestCode!=101)||resultCode!=RESULT_OK)return
         val picked=mutableListOf<Uri>(); data?.clipData?.let { clip -> for(i in 0 until clip.itemCount)picked.add(clip.getItemAt(i).uri) } ?: data?.data?.let { picked.add(it) }
         if(requestCode==101){if(picked.size>2){toast("最多选择 2 个视频");return};videos.clear();videos.addAll(picked);videoLabel?.text="已选择 ${videos.size} 个视频"}else{if(picked.size>6){toast("最多选择 6 张照片");return};photos.clear();photos.addAll(picked);photoLabel?.text="已选择 ${photos.size} 张照片"}
     }
@@ -259,5 +261,5 @@ class MainActivity : Activity() {
     override fun onResume(){super.onResume();mapView?.onResume();if(::updater.isInitialized)updater.resumeInstall()}
     override fun onPause(){mapView?.onPause();stopLocation();super.onPause()}
     override fun onSaveInstanceState(outState:Bundle){super.onSaveInstanceState(outState);mapView?.onSaveInstanceState(outState)}
-    override fun onDestroy(){mainHandler.removeCallbacksAndMessages(null);stopLocation();mapView?.onDestroy();executor.shutdownNow();if(::updater.isInitialized)updater.close();super.onDestroy()}
+    override fun onDestroy(){mainHandler.removeCallbacksAndMessages(null);stopLocation();mapView?.onDestroy();executor.shutdownNow();if(::updater.isInitialized)updater.close();if(::feedback.isInitialized)feedback.close();super.onDestroy()}
 }

@@ -16,3 +16,9 @@
 本轮集成测试均使用模拟 GitHub，不会往公开仓库上传测试照片或视频。
 
 更新检查已使用公开 Releases/latest/download/update.json，规避 GitHub 匿名 REST 配额；最新清单和安装包无须用户 GitHub token。媒体上传和投稿投递仍需专用服务端 token。
+
+## 双平台反馈功能
+
+新增一次针对性集成验证通过：Web/Android 分流到各自仓库、未登录/未授权拒绝、他人截图拒绝、截图专用随机链接可显示但普通图片地址仍私有、草稿加密、明确失败后截图链接撤销，以及超时恢复不重复创建 Issue。使用临时 D1 与模拟 GitHub，没有向公开仓库发测试 Issue。Web JavaScript 语法与 Wrangler dry-run 打包通过；本轮未重复执行原有全套测试。
+
+Android 反馈版本将在本次代码上传后由已有签名发布工作流构建；最终版本以 Releases/latest 为准。真实自动创建 Issue 仍需 Worker 端配置具有两个目标仓库 Issues write 权限的专用 token，并完成 GitHub OAuth 登录配置。

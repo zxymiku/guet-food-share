@@ -68,3 +68,13 @@ OAuth App 的 Homepage 为正式 Origin，Callback 为 `https://food.zxymiku.top
 Web 仓库 Check 工作流仅手动。主仓库只给数据 PR 做格式检查。完整本地检查在关键改动完成后集中进行，不在开发每一步重复运行。
 
 参考：[Workers GitHub 绑定](https://developers.cloudflare.com/workers/ci-cd/builds/git-integration/github-integration/)、[Builds API 权限](https://developers.cloudflare.com/workers/ci-cd/builds/api-reference/)、[GitHub Releases 限制](https://docs.github.com/en/repositories/releasing-projects-on-github/about-releases)、[Android 安装确认](https://developer.android.com/reference/android/content/pm/PackageInstaller)。
+
+## 双平台意见反馈
+
+Web 手动反馈：https://github.com/zxymiku/guet-food-share-web/issues/new 。Android 手动反馈：https://github.com/zxymiku/guet-food-share/issues/new 。两端自动反馈表单均支持标题、详情和最多 3 张 JPEG/PNG 截图（每张原图最多 8 MB，上传前处理 EXIF）。确认公开并提交后，服务端直接在对应平台仓库创建 Issue，返回可点击的 Issue 链接。
+
+自动反馈复用应用 GitHub 登录。请设置 Worker Secret FEEDBACK_GITHUB_TOKEN（主仓库与 Web 仓库 Issues write），或为已有 GITHUB_TOKEN 增加相同权限。截图存储还需要已有媒体仓库 Contents write。不会复用本机 CLI 的个人全账号 token。填写文字、平台、应用版本与选中的截图会公开；不自动收集定位、设备唯一标识或日志。
+
+截图先加密存入媒体仓库。反馈提交时创建单独的、32 字节随机密钥链接，数据库只保存链接密钥摘要；GitHub 图片代理可以读取这些已确认分享的截图。明确创建失败后链接失效；普通媒体 URL 仍按原有投稿权限访问。反馈草稿采用 AES-GCM 加密存储。重复点击/网络超时通过请求编号避免重复创建，结果未确认时应保留表单重试，而不是反复新建反馈。
+
+需应用新增 D1 迁移 0003_feedback.sql。反馈测试仅使用隔离数据库和模拟 GitHub，没有向公开仓库发送测试 Issue。
