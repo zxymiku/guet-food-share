@@ -19,6 +19,8 @@ import android.os.Handler
 import android.os.Looper
 import android.util.Base64
 import android.view.View
+import android.view.Gravity
+import android.graphics.Typeface
 import android.widget.*
 import com.amap.api.maps.*
 import com.amap.api.maps.model.*
@@ -31,7 +33,7 @@ import java.security.SecureRandom
 import java.util.concurrent.Executors
 
 class MainActivity : Activity() {
-    private val orange = Color.rgb(217, 78, 44)
+    private val orange = ArkUi.signal
     private val executor = Executors.newFixedThreadPool(3)
     private lateinit var store: SecureStore
     private lateinit var api: Api
@@ -67,86 +69,163 @@ class MainActivity : Activity() {
     private var locationListener: LocationListener? = null
     private var locationManager: LocationManager? = null
     private fun dp(n: Int) = (n * resources.displayMetrics.density).toInt()
-    private fun text(value: String, size: Float = 14f) = TextView(this).apply { text = value; textSize = size; setTextColor(Color.rgb(44, 50, 41)); setPadding(dp(8), dp(7), dp(8), dp(7)) }
-    private fun button(value: String, action: () -> Unit) = Button(this).apply { text = value; textSize = 12f; setTextColor(orange); setOnClickListener { action() } }
+    private fun text(value:String,size:Float=14f)=ArkUi.label(this,value,size)
+    private fun button(value:String,action:()->Unit)=ArkUi.button(this,value,action=action)
+    private lateinit var mapStatus:TextView
+    private lateinit var countLabel:TextView
+    private lateinit var directory:LinearLayout
+    private lateinit var stage:LinearLayout
+    private lateinit var body:LinearLayout
+    private lateinit var exploreButton:Button
+    private lateinit var directoryButton:Button
+    private var wide=false
+    private var activePlaceId:String?=null
+    private var exportData:String?=null
+    private var fetchInProgress=false
+    private fun settings(){startActivityForResult(Intent(this,MapSettingsActivity::class.java),301)}
     private fun toast(value: String) { Toast.makeText(this, value, Toast.LENGTH_LONG).show() }
     private fun async(action: () -> Unit) { executor.execute { try { action() } catch (e: Exception) { runOnUiThread { if (!isFinishing) toast(e.message ?: "请求失败，请重试") } } } }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        window.statusBarColor = Color.rgb(252,251,247)
-        window.decorView.systemUiVisibility = View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR
+        window.statusBarColor=ArkUi.ink;window.navigationBarColor=ArkUi.ink
         store = SecureStore(this); api = Api { store.token }; updater = AppUpdater(this,api)
         feedback = FeedbackController(this,api,{store.token!=null},{uri->encodePhoto(uri)})
-        root = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; setBackgroundColor(Color.rgb(252,251,247)); setPadding(dp(12),dp(8),dp(12),0) }
-        root.setOnApplyWindowInsetsListener { view, insets -> view.setPadding(dp(12), dp(8) + insets.systemWindowInsetTop, dp(12), insets.systemWindowInsetBottom); insets }
+        root=ArkUi.column(this).apply{setBackgroundColor(ArkUi.ink);tag="${ArkUi.family}/${ArkUi.depth}"}
+        root.setOnApplyWindowInsetsListener{v,i->v.setPadding(0,i.systemWindowInsetTop,0,i.systemWindowInsetBottom);i}
         setContentView(root)
-        val top = LinearLayout(this)
-        top.addView(text("桂电美食分享", 23f), LinearLayout.LayoutParams(0,dp(56),1f))
-        loginButton = button(if (store.token == null) "登录" else if(store.authType=="credential") "退出（密码）" else "退出登录") { login() }
-        top.addView(loginButton); root.addView(top)
-        root.addView(text("桂林电子科技大学 · 校园好味道", 18f))
-        val controls = LinearLayout(this)
-        controls.addView(button("＋ 分享") { share() }); controls.addView(button("我的投稿") { mine() }); controls.addView(button("◎ 定位") { locate() }); controls.addView(button("反馈") { feedback.show() }); root.addView(HorizontalScrollView(this).apply{isHorizontalScrollBarEnabled=false;addView(controls)})
-        mapHost = FrameLayout(this); root.addView(mapHost, LinearLayout.LayoutParams(-1,0,1.1f))
-        mapHost.addView(text("同意地图服务说明后可显示高德地图。\n无需定位授权，也能手动选点。"))
-        val search = EditText(this).apply { hint = "搜索店名、地址"; textSize = 13f; setSingleLine(); addTextChangedListener(object : android.text.TextWatcher {
-            override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
-            override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) { searchQuery = s.toString(); renderPlaces() }
-            override fun afterTextChanged(s: android.text.Editable?) {}
-        }) }; root.addView(search)
-        val filters = Spinner(this).apply { adapter = ArrayAdapter(this@MainActivity, android.R.layout.simple_spinner_dropdown_item, arrayOf("全部") + categories); onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
-            override fun onItemSelected(parent: AdapterView<*>?, view: View?, position: Int, id: Long) { categoryFilter = (arrayOf("全部") + categories)[position]; renderPlaces() }
-            override fun onNothingSelected(parent: AdapterView<*>?) {}
-        } }; root.addView(filters)
-        list = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
-        root.addView(ScrollView(this).apply { addView(list) }, LinearLayout.LayoutParams(-1,0,.85f))
-        if (prefs.getBoolean("map_consent",false)) initMap(savedInstanceState) else privacy(savedInstanceState)
-        refresh(); handleLogin(intent); updater.check()
+        val top=LinearLayout(this).apply{gravity=Gravity.CENTER_VERTICAL;setPadding(dp(12),dp(4),dp(12),dp(4))}
+        val brand=ArkUi.column(this);brand.addView(ArkUi.kicker(this,"GUET / FOOD ATLAS"));brand.addView(text("桂电美食分享",22f).apply{typeface=Typeface.DEFAULT_BOLD})
+        top.addView(brand,LinearLayout.LayoutParams(0,-2,1f));top.addView(button("地图 API"){settings()});top.addView(button("更多"){menu()});root.addView(top);root.addView(ArkUi.rule(this,true))
+        loginButton=button(if(store.token==null)"登录" else if(store.authType=="credential")"退出（密码）" else "退出登录"){login()}
+        wide=resources.configuration.screenWidthDp>=720 || resources.configuration.screenWidthDp>resources.configuration.screenHeightDp
+        body=LinearLayout(this).apply{orientation=if(wide)LinearLayout.HORIZONTAL else LinearLayout.VERTICAL}
+        root.addView(body,LinearLayout.LayoutParams(-1,0,1f))
+        stage=ArkUi.column(this);body.addView(stage,if(wide)LinearLayout.LayoutParams(0,-1,1.25f) else LinearLayout.LayoutParams(-1,0,1.25f))
+        mapStatus=ArkUi.label(this,"地图未启用 · 公开地点可正常浏览",13f,ArkUi.muted).apply{accessibilityLiveRegion=View.ACCESSIBILITY_LIVE_REGION_POLITE};stage.addView(mapStatus)
+        mapHost=FrameLayout(this);stage.addView(mapHost,LinearLayout.LayoutParams(-1,0,1f))
+        val mapActions=LinearLayout(this)
+        mapActions.addView(button("◎ 定位填写"){locate()},LinearLayout.LayoutParams(0,-2,1f))
+        mapActions.addView(button("＋ 选点投稿"){if(amap==null)settings() else {share();if(submitDialog!=null){picking=true;submitDialog?.hide();mapStatus.text="请点击实际门店位置 · 返回表单核对"}}},LinearLayout.LayoutParams(0,-2,1f))
+        stage.addView(mapActions)
+        directory=ArkUi.column(this,12);body.addView(directory,if(wide)LinearLayout.LayoutParams(0,-1,1f) else LinearLayout.LayoutParams(-1,0,1f))
+        val search=ArkUi.field(this,"搜索店名、地址、推荐理由").apply{contentDescription="搜索公开地点";addTextChangedListener(object:android.text.TextWatcher{
+            override fun beforeTextChanged(s:CharSequence?,start:Int,count:Int,after:Int){}
+            override fun onTextChanged(s:CharSequence?,start:Int,before:Int,count:Int){searchQuery=s.toString();renderPlaces()}
+            override fun afterTextChanged(s:android.text.Editable?){}
+        })};directory.addView(search)
+        val chips=LinearLayout(this)
+        (arrayOf("全部")+categories).forEach{category->chips.addView(button(category){categoryFilter=category;for(i in 0 until chips.childCount){val v=chips.getChildAt(i) as Button;v.isSelected=v.text==category;v.background=ArkUi.surface(if(v.isSelected)ArkUi.signal else ArkUi.panel);v.setTextColor(if(v.isSelected)ArkUi.ink else ArkUi.paper)};renderPlaces()}.apply{if(category=="全部"){background=ArkUi.surface(ArkUi.signal);setTextColor(ArkUi.ink);isSelected=true}},LinearLayout.LayoutParams(-2,dp(48)))}
+        directory.addView(HorizontalScrollView(this).apply{isHorizontalScrollBarEnabled=false;addView(chips)})
+        countLabel=ArkUi.kicker(this,"公开地点 · 正在读取");directory.addView(countLabel)
+        list=ArkUi.column(this);directory.addView(ScrollView(this).apply{addView(list)},LinearLayout.LayoutParams(-1,0,1f))
+        val dock=LinearLayout(this).apply{setPadding(dp(10),dp(8),dp(10),dp(8))}
+        exploreButton=button("探索地图"){setMode("map")};directoryButton=button("地点档案"){setMode("list")}
+        dock.addView(exploreButton,LinearLayout.LayoutParams(0,-2,1f));dock.addView(directoryButton,LinearLayout.LayoutParams(0,-2,1f));dock.addView(ArkUi.button(this,"＋ 分享",true){share()},LinearLayout.LayoutParams(0,-2,1f));root.addView(ArkUi.rule(this));root.addView(dock)
+        showMapEmpty();setMode("map")
+        if(prefs.getBoolean("map_consent",false)&&!store.amapAndroidKey.isNullOrBlank())initMap(savedInstanceState)
+        refresh();handleLogin(intent);updater.check();ArkUi.reveal(body)
     }
-    private fun privacy(bundle: Bundle?) {
-        AlertDialog.Builder(this).setTitle("高德地图服务说明")
-            .setMessage("桂电美食分享使用高德地图显示门店与选点。启用地图后，高德 SDK 会按其隐私政策处理设备与网络信息。设备定位仅在点击并授权后获取，用于填写坐标和解析地址；确认提交后才保存投稿。投稿文字、门店位置和照片仅在你明确同意提交后保存，审核通过后公开。图片将在上传前重新编码移除原始元数据。图片、视频以密文保存在公开 GitHub 媒体仓库；审核通过后可在应用观看。文字与门店坐标会进入公开审核 PR。视频原始文件可能含设备元数据，请自行确认可公开。\n\n完整政策可点击下方链接阅读。")
-            .setNeutralButton("查看高德政策") { _, _ -> open("https://lbs.amap.com/pages/privacy/"); privacy(bundle) }
-            .setNegativeButton("暂不启用") { _, _ -> toast("仍可浏览地点和填写高德坐标投稿") }
-            .setPositiveButton("同意并启用") { _, _ -> prefs.edit().putBoolean("map_consent",true).apply(); initMap(bundle) }.setCancelable(false).show()
+    private fun setMode(mode:String){
+        stage.visibility=if(wide||mode=="map")View.VISIBLE else View.GONE
+        directory.visibility=if(wide||mode=="list"||resources.configuration.screenHeightDp>=780)View.VISIBLE else View.GONE
+        exploreButton.isSelected=mode=="map";directoryButton.isSelected=mode=="list"
+        for(button in arrayOf(exploreButton,directoryButton)){button.background=ArkUi.surface(if(button.isSelected)ArkUi.paper else ArkUi.panel);button.setTextColor(if(button.isSelected)ArkUi.ink else ArkUi.paper)}
+        ArkUi.reveal(if(mode=="list")directory else stage)
+    }
+    private fun menu(){
+        AlertDialog.Builder(this).setTitle("桂电美食分享").setItems(arrayOf(loginButton.text.toString(),"我的投稿","刷新公开地点","导出全部公开地点","意见反馈","地图 API 与申请教程")){_,which->when(which){0->login();1->mine();2->refresh();3->exportPlaces();4->feedback.show();5->settings()}}.setNegativeButton("返回",null).show()
+    }
+    private fun showMapEmpty(){
+        mapHost.removeAllViews();mapHost.addView(AtlasStage(this),FrameLayout.LayoutParams(-1,-1))
+        val content=ArkUi.column(this,24)
+        content.addView(ArkUi.kicker(this,"地图 / 等待你的 API"))
+        content.addView(text("把好吃的，\n留在地图上。",30f).apply{typeface=Typeface.DEFAULT_BOLD})
+        content.addView(ArkUi.label(this,"自己的地图 API，大家的美食档案。",14f,ArkUi.muted))
+        content.addView(ArkUi.button(this,"申请并填写高德 API →",true){settings()})
+        content.addView(ArkUi.label(this,"未配置地图时，仍可浏览地点档案。",13f,ArkUi.muted))
+        mapHost.addView(ScrollView(this).apply{isFillViewport=true;addView(content)},FrameLayout.LayoutParams(-1,-1))
+        mapStatus.text="地图未启用 · 个人 API 仅保存在本机"
     }
     private fun initMap(bundle: Bundle?) {
         if (mapView != null) return
-        val key = packageManager.getApplicationInfo(packageName, PackageManager.GET_META_DATA).metaData.getString("com.amap.api.v2.apikey")
-        if (key.isNullOrBlank()) { mapHost.removeAllViews(); mapHost.addView(text("尚未配置高德 Android Key。\n请在 local.properties 中设置后重新构建。")); return }
+        val key=store.amapAndroidKey
+        if(key.isNullOrBlank()){showMapEmpty();return}
+        try {
+        MapsInitializer.setApiKey(key)
         MapsInitializer.updatePrivacyShow(this,true,true); MapsInitializer.updatePrivacyAgree(this,true)
         mapView = MapView(this).also { it.onCreate(bundle); mapHost.removeAllViews(); mapHost.addView(it) }
         amap = mapView!!.map.apply {
             moveCamera(CameraUpdateFactory.newLatLngZoom(LatLng(25.274215,110.299121),13f))
             setOnMapClickListener { point ->
-                selected = point; selectedMarker?.remove(); selectedMarker = addMarker(MarkerOptions().position(point).title("待投稿门店位置"))
-                if (picking) { picking = false; resolveAddress(point); lngInput?.setText("%.6f".format(java.util.Locale.US,point.longitude)); latInput?.setText("%.6f".format(java.util.Locale.US,point.latitude)); submitDialog?.show() }
+                selected = point;autoAddress=null;nearbyName=null; selectedMarker?.remove(); selectedMarker = addMarker(MarkerOptions().position(point).title("待投稿门店位置"))
+                if (picking) { picking = false;mapStatus.text="已选择门店 · 请核对后提交"; resolveAddress(point); lngInput?.setText("%.6f".format(java.util.Locale.US,point.longitude)); latInput?.setText("%.6f".format(java.util.Locale.US,point.latitude)); submitDialog?.show() }
                 else toast("已选点，点击“分享”填写门店信息")
             }
             setOnMarkerClickListener { marker -> (marker.`object` as? JSONObject)?.let { detail(it); true } ?: false }
         }
+        amap?.uiSettings?.isZoomControlsEnabled=false
+        amap?.uiSettings?.isScaleControlsEnabled=true
+        mapStatus.text="个人 API · 正在连接高德"
+        var loaded=false
+        amap?.setOnMapLoadedListener{loaded=true;mapStatus.text="高德地图 · GCJ-02 · 个人 API"}
+        val currentMap=mapView
+        mainHandler.postDelayed({if(!loaded&&mapView===currentMap&&!isDestroyed)mapStatus.text="地图未就绪 · 检查网络或地图 API 设置"},20000)
         renderPlaces()
+        }catch(_:Exception){mapView?.onDestroy();mapView=null;amap=null;showMapEmpty();mapStatus.text="地图初始化失败 · 请检查地图 API 设置"}
     }
-    private fun refresh() { async { val result = api.request("/api/places").getJSONArray("places"); val data = (0 until result.length()).map { result.getJSONObject(it) }; runOnUiThread { places = data; renderPlaces() } } }
-    private fun renderPlaces() {
-        if (!::list.isInitialized) return
-        list.removeAllViews(); amap?.clear(); selectedMarker = null
-        val visible = places.filter { (categoryFilter == "全部" || it.getString("category") == categoryFilter) && (it.getString("name")+it.getString("address")).contains(searchQuery,true) }
-        if (visible.isEmpty()) list.addView(text("还没有匹配的公开地点。分享你的第一家好店吧。"))
-        visible.forEach { p ->
-            list.addView(button("${p.getString("name")}  ·  ${p.getString("category")}\n${p.getString("address")}") { detail(p) })
-            val loc = p.getJSONObject("location"); amap?.addMarker(MarkerOptions().position(LatLng(loc.getDouble("lat"),loc.getDouble("lng"))).title(p.getString("name")))?.`object` = p
+    private fun readPlaces():List<JSONObject>{
+        val result=linkedMapOf<String,JSONObject>();val seen=mutableSetOf<String>();var cursor=""
+        do{val page=api.request("/api/places?limit=200"+if(cursor.isEmpty())"" else "&cursor="+Uri.encode(cursor));val rows=page.getJSONArray("places")
+            for(i in 0 until rows.length()){val p=rows.getJSONObject(i);result[p.getString("id")]=p}
+            cursor=if(page.isNull("nextCursor"))"" else page.optString("nextCursor","")
+            check(cursor.isEmpty()||seen.add(cursor)){"地点分页异常，请稍后重试"}
+        }while(cursor.isNotEmpty())
+        return result.values.toList()
+    }
+    private fun refresh(){
+        if(fetchInProgress)return;fetchInProgress=true;countLabel.text="公开地点 · 正在读取"
+        executor.execute{try{val data=readPlaces();runOnUiThread{places=data;fetchInProgress=false;renderPlaces()}}
+        catch(e:Exception){runOnUiThread{fetchInProgress=false;countLabel.text="读取失败 · 更多 → 刷新公开地点";toast(e.message?:"读取失败")}}}
+    }
+    private fun renderPlaces(){
+        if(!::list.isInitialized)return
+        list.removeAllViews();amap?.clear();selectedMarker=null
+        val visible=places.filter{(categoryFilter=="全部"||it.getString("category")==categoryFilter)&&(it.getString("name")+it.getString("address")+it.optString("description")).contains(searchQuery,true)}
+        countLabel.text="地点档案 / ${visible.size} 个匹配 · 共 ${places.size} 个公开"
+        if(visible.isEmpty()){
+            list.addView(ArkUi.label(this,if(places.isEmpty())"等你发现第一处好味道。" else "没有匹配的地点。",20f))
+            list.addView(ArkUi.label(this,if(places.isEmpty())"分享真实门店，审核后每个人都能在自己的地图上看到。" else "试试其他分类或关键词。",14f,ArkUi.muted))
+        }
+        visible.forEachIndexed{index,p->
+            val row=LinearLayout(this).apply{gravity=Gravity.CENTER_VERTICAL;setPadding(0,dp(10),0,dp(10));background=ArkUi.surface(if(p.optString("id")==activePlaceId)ArkUi.line else ArkUi.ink,ArkUi.ink)}
+            row.addView(ArkUi.label(this,"%02d".format(index+1),24f,ArkUi.signal).apply{typeface=Typeface.create("sans-serif-condensed",Typeface.BOLD)})
+            val copy=ArkUi.column(this);copy.addView(ArkUi.kicker(this,p.getString("category")));copy.addView(text(p.getString("name"),18f).apply{typeface=Typeface.DEFAULT_BOLD});copy.addView(ArkUi.label(this,p.getString("address"),14f,ArkUi.muted))
+            row.addView(copy,LinearLayout.LayoutParams(0,-2,1f));row.addView(text("↗",22f));row.isClickable=true;row.isFocusable=true;row.setOnFocusChangeListener{v,focused->v.background=ArkUi.surface(if(focused)ArkUi.line else ArkUi.ink,if(focused)ArkUi.signal else ArkUi.ink)};row.contentDescription="${p.getString("name")}，${p.getString("category")}，${p.getString("address")}，查看详情";row.setOnClickListener{detail(p)}
+            list.addView(row);list.addView(ArkUi.rule(this))
+            val loc=p.getJSONObject("location");amap?.addMarker(MarkerOptions().position(LatLng(loc.getDouble("lat"),loc.getDouble("lng"))).title(p.getString("name")).icon(BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_CYAN)))?.`object`=p
+        }
+        selected?.let{point->selectedMarker=amap?.addMarker(MarkerOptions().position(point).title("待投稿门店位置"))}
+    }
+    private fun exportPlaces(){
+        toast("正在整理全部公开地点…")
+        async{val all=readPlaces();val archive=JSONObject().put("format","guet-food-places").put("schemaVersion",1).put("exportedAt",java.time.Instant.now().toString()).put("source",BuildConfig.API_BASE_URL).put("mediaBaseUrl",BuildConfig.API_BASE_URL).put("crs","GCJ-02").put("places",JSONArray(all))
+            runOnUiThread{exportData=archive.toString(2);startActivityForResult(Intent(Intent.ACTION_CREATE_DOCUMENT).apply{addCategory(Intent.CATEGORY_OPENABLE);type="application/json";putExtra(Intent.EXTRA_TITLE,"guet-food-places.json")},302)}
         }
     }
     private fun detail(p: JSONObject) {
-        val content = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; setPadding(dp(14),dp(8),dp(14),dp(8)) }
+        activePlaceId=p.optString("id");renderPlaces()
+        val point=p.getJSONObject("location");amap?.animateCamera(CameraUpdateFactory.newLatLngZoom(LatLng(point.getDouble("lat"),point.getDouble("lng")),16f))
+        val content=ArkUi.column(this,16)
+        content.addView(ArkUi.section(this,"地点档案 / ${p.getString("category")}",p.getString("name"),"由同学分享 · 已公开"))
+        content.addView(ArkUi.label(this,"${point.getDouble("lng")}, ${point.getDouble("lat")} · GCJ-02",14f,ArkUi.signal).apply{setTextIsSelectable(true)})
+        if(!p.isNull("publishedAt"))content.addView(ArkUi.label(this,"公开时间："+p.optString("publishedAt"),13f,ArkUi.muted))
         content.addView(text(p.getString("address"))); content.addView(text(p.optString("description"))); content.addView(text("如何前往\n"+p.optString("directions")))
         val images = p.optJSONArray("photos") ?: JSONArray()
         for (i in 0 until images.length()) { val image = ImageView(this).apply { contentDescription = "门店照片"; adjustViewBounds = true }; content.addView(image,LinearLayout.LayoutParams(-1,dp(190))); async { val bytes = api.photo(images.getString(i)); val bitmap = BitmapFactory.decodeByteArray(bytes,0,bytes.size); runOnUiThread { image.setImageBitmap(bitmap) } } }
         val clips=p.optJSONArray("videos")?:JSONArray()
         for(i in 0 until clips.length()){content.addView(button("▶ 播放美食视频 ${i+1}"){val video=VideoView(this);val controller=MediaController(this);controller.setAnchorView(video);video.setMediaController(controller);video.setVideoURI(Uri.parse(BuildConfig.API_BASE_URL+clips.getString(i)),mapOf("Authorization" to "Bearer ${store.token.orEmpty()}"));AlertDialog.Builder(this).setView(video).setPositiveButton("关闭"){_,_->video.stopPlayback()}.setOnDismissListener{video.stopPlayback()}.show();video.setOnPreparedListener{video.start()}})}
-        AlertDialog.Builder(this).setTitle(p.getString("name")).setView(ScrollView(this).apply { addView(content) }).setNegativeButton("关闭",null).setPositiveButton("高德导航") { _, _ ->
+        AlertDialog.Builder(this).setView(ScrollView(this).apply { addView(content) }).setNegativeButton("关闭",null).setPositiveButton("高德导航") { _, _ ->
             val loc = p.getJSONObject("location"); open("https://uri.amap.com/navigation?to=${loc.getDouble("lng")},${loc.getDouble("lat")},${Uri.encode(p.getString("name"))}&mode=walk&coordinate=gaode&callnative=1")
         }.show()
     }
@@ -157,7 +236,7 @@ class MainActivity : Activity() {
     private fun passwordLogin(){
         val box=LinearLayout(this).apply{orientation=LinearLayout.VERTICAL;setPadding(dp(20),dp(8),dp(20),dp(8))}
         box.addView(text("输入管理员提供的共享密码，可查看、上传美食并提交反馈；公开美食仍需审核，没有删除或管理权限。",12f))
-        val password=EditText(this).apply{hint="共享密码（12～128 字符）";inputType=android.text.InputType.TYPE_CLASS_TEXT or android.text.InputType.TYPE_TEXT_VARIATION_PASSWORD;filters=arrayOf(android.text.InputFilter.LengthFilter(128));box.addView(this)}
+        val password=ArkUi.field(this,"共享密码（12～128 字符）",true).apply{inputType=android.text.InputType.TYPE_CLASS_TEXT or android.text.InputType.TYPE_TEXT_VARIATION_PASSWORD;filters=arrayOf(android.text.InputFilter.LengthFilter(128));box.addView(this)}
         val error=TextView(this).apply{setTextColor(orange);textSize=12f;box.addView(this)}
         val dialog=AlertDialog.Builder(this).setTitle("密码凭证登录").setView(box).setNegativeButton("取消",null).setPositiveButton("登录",null).create()
         dialog.setOnDismissListener{password.text.clear()}
@@ -187,24 +266,27 @@ class MainActivity : Activity() {
     }
     private fun open(url: String) { try { startActivity(Intent(Intent.ACTION_VIEW,Uri.parse(url))) } catch (_: Exception) { toast("没有可打开链接的应用") } }
     private fun field(parent: LinearLayout, title: String, hint: String = "", multiline: Boolean = false): EditText {
-        parent.addView(text(title,12f)); return EditText(this).apply { this.hint = hint; textSize = 14f; setSingleLine(!multiline); if (multiline) minLines = 2; parent.addView(this) }
+        parent.addView(text(title,14f)); return ArkUi.field(this,hint).apply { setSingleLine(!multiline); if (multiline) minLines = 3; parent.addView(this) }
     }
     private fun share() {
         if (store.token == null) { toast("请先登录后投稿"); return }
-        if (submitDialog?.isShowing == true) return
+        if (submitDialog != null) { picking=false;submitDialog?.show();return }
         photos.clear(); videos.clear()
-        val form = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; setPadding(dp(18),0,dp(18),0) }
+        val form = ArkUi.column(this,18)
+        form.addView(ArkUi.section(this,"01 / 门店档案","分享好味道","坐标与内容一起保存，其他人用自己的 API 也能看到。"))
         val name = field(form,"店名 *"); nameInput=name; nearbyName?.let {name.setText(it)}; val category = Spinner(this).apply { adapter = ArrayAdapter(this@MainActivity,android.R.layout.simple_spinner_dropdown_item,categories) }; form.addView(text("分类 *",12f)); form.addView(category)
+        form.addView(ArkUi.section(this,"02 / 地图位置","把地点标清楚","高德 GCJ-02 坐标 · 请核对实际门店"))
         val address = field(form,"门店地址 *"); addressInput=address; autoAddress?.let {address.setText(it)}; lngInput = field(form,"高德经度 *","例如 110.299121"); latInput = field(form,"高德纬度 *","例如 25.274215")
         selected?.let { lngInput!!.setText(it.longitude.toString()); latInput!!.setText(it.latitude.toString()) }
-        form.addView(button("在地图上选点") { if(amap==null)toast("请先启用并配置高德地图") else { picking=true; submitDialog?.hide(); toast("请点击地图上的门店位置") } })
+        form.addView(button("在地图上选点") { if(amap==null)toast("请先启用并配置高德地图") else { picking=true; setMode("map");submitDialog?.hide(); toast("请点击地图上的门店位置") } })
         form.addView(button("◎ 定位并自动填写地址") { locatingForForm=true; locate() })
         val description = field(form,"推荐理由",multiline=true); val directions = field(form,"如何前往",multiline=true)
-        photoLabel = text("照片可选，最多 6 张 JPEG / PNG（每张 8 MB）",11f); form.addView(photoLabel)
+        form.addView(ArkUi.section(this,"03 / 图像与授权","留下现场的味道","媒体选填 · 审核通过后公开"))
+        photoLabel = text("照片可选，最多 6 张 JPEG / PNG（每张 8 MB）",14f); form.addView(photoLabel)
         form.addView(button("选择门店照片") { startActivityForResult(Intent(Intent.ACTION_OPEN_DOCUMENT).apply { type="image/*"; putExtra(Intent.EXTRA_MIME_TYPES,arrayOf("image/jpeg","image/png")); putExtra(Intent.EXTRA_ALLOW_MULTIPLE,true); addCategory(Intent.CATEGORY_OPENABLE) },100) })
-        videoLabel=text("视频可选，最多 2 个 MP4/WebM（每个 50 MB）",11f);form.addView(videoLabel)
+        videoLabel=text("视频可选，最多 2 个 MP4/WebM（每个 50 MB）",14f);form.addView(videoLabel)
         form.addView(button("选择美食视频") {startActivityForResult(Intent(Intent.ACTION_OPEN_DOCUMENT).apply {type="video/*";putExtra(Intent.EXTRA_MIME_TYPES,arrayOf("video/mp4","video/webm"));putExtra(Intent.EXTRA_ALLOW_MULTIPLE,true);addCategory(Intent.CATEGORY_OPENABLE)},101)})
-        val consent = CheckBox(this).apply { text="我有权分享文字、图片和视频，允许公开门店位置；文字和坐标进入公开审核 PR，媒体密文存入公开仓库，审核后在应用公开。视频可能含设备信息，请核对后提交。"; textSize=12f }; form.addView(consent)
+        val consent = CheckBox(this).apply { text="我有权分享文字、图片和视频，允许公开门店位置；文字和坐标进入公开审核 PR，媒体密文存入公开仓库，审核后在应用公开。视频可能含设备信息，请核对后提交。"; textSize=14f }; form.addView(consent)
         submitDialog = AlertDialog.Builder(this).setTitle("分享好味道").setView(ScrollView(this).apply { addView(form) }).setNegativeButton("取消") { _, _ -> picking=false }.setPositiveButton("提交审核",null).create()
         submitDialog!!.setOnShowListener { submitDialog!!.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener {
             val lng=lngInput!!.text.toString().toDoubleOrNull(); val lat=latInput!!.text.toString().toDoubleOrNull()
@@ -215,7 +297,7 @@ class MainActivity : Activity() {
                 val uploaded=JSONArray(); photos.toList().forEach { uri -> uploaded.put(api.request("/api/photos","POST",encodePhoto(uri),"image/jpeg").getString("url")) }; data.put("photos",uploaded);val uploadedVideos=JSONArray();videos.toList().forEach {uri->uploadedVideos.put(api.uploadVideo(this,uri).getString("url"))};data.put("videos",uploadedVideos)
                 val result=api.post("/api/submissions",data); runOnUiThread { submitDialog?.dismiss(); submitDialog=null; toast(result.getString("message")) }
             } catch(e:Exception) { runOnUiThread { submit.isEnabled=true;submit.text="提交审核";toast(e.message?:"提交失败") } } }
-        } }; submitDialog!!.show()
+        } }; submitDialog!!.setOnDismissListener{submitDialog=null;picking=false;addressInput=null;nameInput=null;lngInput=null;latInput=null};submitDialog!!.show()
     }
     private fun encodePhoto(uri: Uri): ByteArray {
         val raw=contentResolver.openInputStream(uri)!!.use { input ->
@@ -242,21 +324,27 @@ class MainActivity : Activity() {
     }
     @Deprecated("Framework photo picker callback")
     override fun onActivityResult(requestCode: Int,resultCode: Int,data: Intent?) {
-        super.onActivityResult(requestCode,resultCode,data); if(requestCode==FeedbackController.PICK_SCREENSHOTS){feedback.onPicked(resultCode,data);return}; if((requestCode!=100&&requestCode!=101)||resultCode!=RESULT_OK)return
+        super.onActivityResult(requestCode,resultCode,data)
+        if(requestCode==301&&resultCode==RESULT_OK){
+            mapView?.onPause();mapView?.onDestroy();mapView=null;amap=null
+            showMapEmpty();if(prefs.getBoolean("map_consent",false)&&!store.amapAndroidKey.isNullOrBlank()){initMap(null)};return
+        }
+        if(requestCode==302){val archive=exportData;exportData=null;if(resultCode==RESULT_OK&&data?.data!=null&&archive!=null){val uri=data.data!!;async{contentResolver.openOutputStream(uri)!!.bufferedWriter().use{it.write(archive)};runOnUiThread{toast("已导出完整公开地点与媒体引用，不含个人 API")}}};return}
+        if(requestCode==FeedbackController.PICK_SCREENSHOTS){feedback.onPicked(resultCode,data);return}; if((requestCode!=100&&requestCode!=101)||resultCode!=RESULT_OK)return
         val picked=mutableListOf<Uri>(); data?.clipData?.let { clip -> for(i in 0 until clip.itemCount)picked.add(clip.getItemAt(i).uri) } ?: data?.data?.let { picked.add(it) }
         if(requestCode==101){if(picked.size>2){toast("最多选择 2 个视频");return};videos.clear();videos.addAll(picked);videoLabel?.text="已选择 ${videos.size} 个视频"}else{if(picked.size>6){toast("最多选择 6 张照片");return};photos.clear();photos.addAll(picked);photoLabel?.text="已选择 ${photos.size} 张照片"}
     }
     private fun mine() {
         if(store.token==null){toast("请先登录");return}
         async { val rows=api.request("/api/submissions").getJSONArray("submissions");runOnUiThread {
-            val box=LinearLayout(this).apply{orientation=LinearLayout.VERTICAL;setPadding(dp(12),0,dp(12),0)}
+            val box=ArkUi.column(this,16);box.addView(ArkUi.section(this,"投稿 / 处理进度","我的美食档案","提交 → 整理 → 人工审核 → 地图公开"))
             if(rows.length()==0)box.addView(text("还没有投稿"))
             for(i in 0 until rows.length()){val s=rows.getJSONObject(i);val status=when(s.getString("status")){"published"->"已公开";"queued"->"整理 / 审核中";else->"已保存 · 待送达"};box.addView(text(s.getString("name")+" · "+status));if(s.getString("status")=="pending")box.addView(button("重新送交 GitHub") { async { api.post("/api/submissions/${s.getString("id")}/retry",JSONObject());runOnUiThread{toast("已送交 GitHub")} } })}
             AlertDialog.Builder(this).setTitle("我的投稿").setView(ScrollView(this).apply{addView(box)}).setPositiveButton("关闭",null).show()
         } }
     }
     private fun locate() {
-        if(amap==null){if(!prefs.getBoolean("map_consent",false))privacy(null) else toast("请先配置高德地图");return}
+        if(amap==null){settings();return}
         if(checkSelfPermission(Manifest.permission.ACCESS_FINE_LOCATION)!=PackageManager.PERMISSION_GRANTED && checkSelfPermission(Manifest.permission.ACCESS_COARSE_LOCATION)!=PackageManager.PERMISSION_GRANTED){requestPermissions(arrayOf(Manifest.permission.ACCESS_FINE_LOCATION,Manifest.permission.ACCESS_COARSE_LOCATION),200);return}
         stopLocation()
         val manager=getSystemService(LOCATION_SERVICE) as LocationManager;locationManager=manager
@@ -272,12 +360,17 @@ class MainActivity : Activity() {
         try { manager.requestLocationUpdates(provider,0L,0f,listener,Looper.getMainLooper());mainHandler.postDelayed({if(locationListener!=null){stopLocation();toast("定位超时，请手动选点")}},15000) } catch (_: SecurityException){toast("定位权限不可用")}
     }
     private fun resolveAddress(point:LatLng){
-        async {try{val data=api.post("/api/location",JSONObject().put("lng",point.longitude).put("lat",point.latitude));val address=data.getString("address");val poi=data.optJSONArray("pois");val candidate=if(poi!=null&&poi.length()>0&&poi.getJSONObject(0).optDouble("distance",999.0)<=80)poi.getJSONObject(0).getString("name")else null
-            runOnUiThread{if(selected!=point)return@runOnUiThread;autoAddress=address;nearbyName=candidate;addressInput?.setText(address);if(nameInput?.text.isNullOrBlank()&&candidate!=null)nameInput?.setText(candidate);toast("坐标和地址已填写，请核对实际门店及名称")}
+        val key=store.amapRestKey
+        autoAddress=null;nearbyName=null;addressInput?.setText("")
+        if(key.isNullOrBlank()){toast("坐标已填写。可手动填写地址，或在地图 API 设置中添加 Web 服务 Key。");return}
+        async {try{val data=PersonalGeocoder.lookup(key,point.longitude,point.latitude);val address=data.getString("address");val poi=data.optJSONArray("pois");val candidate=if(poi!=null&&poi.length()>0&&poi.getJSONObject(0).optDouble("distance",999.0)<=80)poi.getJSONObject(0).getString("name")else null
+            runOnUiThread{if(selected!=point)return@runOnUiThread;val currentLng=lngInput?.text?.toString()?.toDoubleOrNull();val currentLat=latInput?.text?.toString()?.toDoubleOrNull();if(currentLng!=null&&currentLat!=null&&(kotlin.math.abs(currentLng-point.longitude)>0.000001||kotlin.math.abs(currentLat-point.latitude)>0.000001))return@runOnUiThread;autoAddress=address;nearbyName=candidate;addressInput?.setText(address);if(nameInput?.text.isNullOrBlank()&&candidate!=null)nameInput?.setText(candidate);toast("坐标和地址已填写，请核对实际门店及名称")}
         }catch(e:Exception){runOnUiThread{toast("坐标已填写，地址请手动填写："+e.message)}}}
     }
     private fun stopLocation(){locationListener?.let { locationManager?.removeUpdates(it) };locationListener=null}
     override fun onRequestPermissionsResult(requestCode:Int,permissions:Array<out String>,grantResults:IntArray){super.onRequestPermissionsResult(requestCode,permissions,grantResults);if(requestCode==200){if(grantResults.any{it==PackageManager.PERMISSION_GRANTED})locate()else toast("未授予定位权限，仍可手动选点")}}
+    @Deprecated("Framework back navigation")
+    override fun onBackPressed(){if(picking&&submitDialog!=null){picking=false;submitDialog?.show();mapStatus.text="高德地图 · 个人 API"}else super.onBackPressed()}
     override fun onResume(){super.onResume();mapView?.onResume();if(::updater.isInitialized)updater.resumeInstall()}
     override fun onPause(){mapView?.onPause();stopLocation();super.onPause()}
     override fun onSaveInstanceState(outState:Bundle){super.onSaveInstanceState(outState);mapView?.onSaveInstanceState(outState)}

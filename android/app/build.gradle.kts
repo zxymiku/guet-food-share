@@ -13,7 +13,6 @@ android {
         versionCode = System.getenv("VERSION_CODE")?.toInt() ?: 1000
         versionName = System.getenv("VERSION_NAME") ?: "1.0.0"
         buildConfigField("String", "API_BASE_URL", "\"${apiBase.replace("\\", "\\\\").replace("\"", "\\\"")}\"")
-        manifestPlaceholders["AMAP_KEY"] = System.getenv("AMAP_ANDROID_KEY") ?: local.getProperty("AMAP_ANDROID_KEY") ?: ""
     }
     signingConfigs {
         create("production") {

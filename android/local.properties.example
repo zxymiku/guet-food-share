@@ -1,3 +1,3 @@
 # Android Studio writes sdk.dir automatically.
 API_BASE_URL=https://food.zxymiku.top
-AMAP_ANDROID_KEY=
+# Personal map keys are entered in the installed app, never at build time.

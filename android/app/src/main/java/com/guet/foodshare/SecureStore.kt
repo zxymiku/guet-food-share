@@ -32,6 +32,12 @@ class SecureStore(context: Context) {
         val cipher=Cipher.getInstance("AES/GCM/NoPadding");cipher.init(Cipher.ENCRYPT_MODE,key())
         prefs.edit().putString(name,Base64.encodeToString(cipher.iv+cipher.doFinal(value.toByteArray()),Base64.NO_WRAP)).apply()
     }
+    var amapAndroidKey:String?
+        get()=read("amap_android_key")
+        set(value){write("amap_android_key",value)}
+    var amapRestKey:String?
+        get()=read("amap_rest_key")
+        set(value){write("amap_rest_key",value)}
     var token:String?
         get()=read("token")
         set(value){write("token",value)}

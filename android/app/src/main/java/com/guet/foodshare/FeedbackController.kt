@@ -36,20 +36,20 @@ class FeedbackController(
     }
     private fun automatic(){
         images.clear();uploaded.clear()
-        val content=LinearLayout(activity).apply{orientation=LinearLayout.VERTICAL;setPadding(dp(18),dp(8),dp(18),dp(8))}
-        fun label(value:String)=TextView(activity).apply{text=value;textSize=12f;setPadding(0,dp(12),0,dp(5));content.addView(this)}
+        val content=ArkUi.column(activity,18);content.addView(ArkUi.section(activity,"反馈 / ANDROID","让它更好用","问题、建议与截图将送达项目仓库。"))
+        fun label(value:String)=ArkUi.label(activity,value).apply{setPadding(0,dp(12),0,dp(5));content.addView(this)}
         label("反馈自动发布到 Android 主仓库；密码登录由管理员代发，GitHub 登录使用你自己的账号。")
         label("标题 *（最多 100 字）")
-        val title=EditText(activity).apply{hint="简要描述问题或建议";setSingleLine();filters=arrayOf(android.text.InputFilter.LengthFilter(100));content.addView(this)}
+        val title=ArkUi.field(activity,"简要描述问题或建议").apply{setSingleLine();filters=arrayOf(android.text.InputFilter.LengthFilter(100));content.addView(this)}
         label("反馈详情 *（最多 4000 字）")
-        val description=EditText(activity).apply{hint="发生了什么？如何重现？希望怎样改进？";minLines=4;filters=arrayOf(android.text.InputFilter.LengthFilter(4000));content.addView(this)}
+        val description=ArkUi.field(activity,"发生了什么？如何重现？希望怎样改进？").apply{setSingleLine(false);minLines=4;filters=arrayOf(android.text.InputFilter.LengthFilter(4000));content.addView(this)}
         caption=label("截图可选，最多 3 张 JPEG / PNG，每张 8 MB")
         val choose=Button(activity).apply{text="＋ 添加截图";setOnClickListener{
             activity.startActivityForResult(Intent(Intent.ACTION_OPEN_DOCUMENT).apply{type="image/*";putExtra(Intent.EXTRA_MIME_TYPES,arrayOf("image/jpeg","image/png"));putExtra(Intent.EXTRA_ALLOW_MULTIPLE,true);addCategory(Intent.CATEGORY_OPENABLE)},PICK_SCREENSHOTS)
         };content.addView(this)}
         preview=LinearLayout(activity).apply{orientation=LinearLayout.HORIZONTAL;content.addView(this)}
-        val consent=CheckBox(activity).apply{text="我同意将本次反馈文字、截图和应用版本公开发布到 GitHub Issue，已检查截图中需要遮挡的个人信息。";textSize=12f;content.addView(this)}
-        val error=TextView(activity).apply{setTextColor(Color.rgb(188,64,42));textSize=12f;content.addView(this)}
+        val consent=CheckBox(activity).apply{text="我同意将本次反馈文字、截图和应用版本公开发布到 GitHub Issue，已检查截图中需要遮挡的个人信息。";textSize=14f;content.addView(this)}
+        val error=TextView(activity).apply{setTextColor(ArkUi.signal);textSize=14f;content.addView(this)}
         var requestId=UUID.randomUUID().toString();var previousFingerprint=""
         val dialog=AlertDialog.Builder(activity).setTitle("自动反馈 · Android").setView(ScrollView(activity).apply{addView(content)})
             .setNegativeButton("取消",null).setPositiveButton("提交并创建 Issue",null).create()

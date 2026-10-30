@@ -15,7 +15,6 @@ jobs:
       VERSION_CODE: ${{ github.run_number }}
       VERSION_NAME: 1.0.${{ github.run_number }}
       API_BASE_URL: ${{ vars.API_BASE_URL }}
-      AMAP_ANDROID_KEY: ${{ secrets.AMAP_ANDROID_KEY }}
       SIGNING_STORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
       SIGNING_KEY_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
       SIGNING_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}

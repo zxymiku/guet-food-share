@@ -49,7 +49,7 @@ npm run db:local
 npm run dev
 ```
 
-高德 Key、GitHub App 和专用受限 GitHub 服务端 token 需要配置后才能使用真实地图、登录、媒体上传及投稿投递。本机 CLI 登录只用于创建/上传仓库，没有被复制为应用服务端凭据。
+高德凭据由每位用户在“地图 API”内自行填写，Web 默认长期记住，Android 在本机加密保存。GitHub App 和专用受限 GitHub 服务端 token 仍用于登录、媒体上传及投稿投递。本机 CLI 登录只用于创建/上传仓库，没有被复制为应用服务端凭据。
 
 [下载最新 Android APK](https://food.zxymiku.top/download/android) · [打开 Web](https://food.zxymiku.top)
 
@@ -57,10 +57,18 @@ npm run dev
 
 仓库 Actions 中选择“桂电美食分享 · Android 发布”→ Run workflow。正式签名在 GitHub encrypted secrets 中；本机签名备份放在被 Git 忽略的 `.secrets/`，密码备份使用 Windows DPAPI 加密，不上传仓库。不要删除签名备份或随意替换签名，否则既有安装无法直接升级。
 
-正式环境需设置主仓库变量 `API_BASE_URL`、Secret `AMAP_ANDROID_KEY`。签名 Secrets 为 `ANDROID_KEYSTORE_BASE64`、`ANDROID_KEYSTORE_PASSWORD`、`ANDROID_KEY_ALIAS`。Android 安装权限与最终安装操作由用户在系统界面确认，应用不会绕过该流程。
+正式环境需设置主仓库变量 `API_BASE_URL`。签名 Secrets 为 `ANDROID_KEYSTORE_BASE64`、`ANDROID_KEYSTORE_PASSWORD`、`ANDROID_KEY_ALIAS`。Android 安装权限与最终安装操作由用户在系统界面确认，应用不会绕过该流程。
 
 ## 验证频率
 
 全套 Web 测试改为手动运行；不在每次代码推送时重复执行。只有数据 PR 做轻量格式校验；Android 按每周或手动构建发布。验证记录见 [docs/VERIFICATION.md](docs/VERIFICATION.md)。
 
-首版暂未接入拒稿通知、用户删除/撤回与媒体清理后台；公开列表最多返回最新 500 个地点。上传的文字和坐标会进入公开审核 PR，媒体密文进入公开仓库；公开授权提示已写入两端表单。GitHub Releases 不是无限容量或无限流量的承诺，后续规模增长可替换媒体后端。
+首版暂未接入拒稿通知、用户删除/撤回与媒体清理后台；公开地点通过稳定游标分页完整读取，不再截断为最近 500 条。上传的文字和坐标会进入公开审核 PR，媒体密文进入公开仓库；公开授权提示已写入两端表单。GitHub Releases 不是无限容量或无限流量的承诺，后续规模增长可替换媒体后端。
+
+## 个人高德 API 与共享地点
+
+[详细申请教程](web/public/amap-guide.md)覆盖开发者注册、JSAPI Key 与安全码、Android 包名/SHA-1、可选地址解析 Key、额度收费及排错。Web“地图 API”打开渲染教程，Android 内置同一份离线教程与当前签名复制按钮。
+
+个人 API 大量使用、超出免费额度或收费能力可能需要缴费，因此请自行申请。凭据不会上传项目服务器、公开仓库或地点记录，仅由设备直接交给高德认证。项目代码已开源，欢迎审查。Web 默认长期本地保存，也可选当前标签页使用并随时清除。
+
+地点数据与任何 Key 无关：完整保存店名、分类、地址、推荐理由、前往方法、GCJ-02 坐标及媒体引用，公开接口返回稳定 ID、创建时间与发布时间。其他人填自己的 API 即可显示相同标记。双端均能导出全部公开地点 JSON；[数据契约](docs/PLACE-DATA.md)说明读取和媒体恢复方式。

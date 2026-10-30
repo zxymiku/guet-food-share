@@ -217,31 +217,15 @@ node -e "process.stdout.write(require('node:crypto').randomBytes(48).toString('b
 
 SUBMISSION_BOT_TOKEN 是可选兼容项，默认不要创建。如果组织策略确实需要独立机器人 PAT，选定主仓库，只给 Contents write 和 Pull requests write，并作为主仓库 Actions Secret 保存，不交给 Worker 或普通用户。
 
-## 9. 高德地图：分别申请三种 Key
+## 9. 高德地图：个人在本机申请与填写
 
-进入 [高德开放平台](https://console.amap.com/)，完成开发者注册/认证，控制台 → 应用管理 → 我的应用 → 创建应用“桂电美食分享”。创建不同平台的 Key，不混用。
+完整逐步教程见 [个人高德 API 申请与使用](../web/public/amap-guide.md)，Web 内打开“地图 API”→教程；Android 内置同一份离线教程。
 
-### Web JSAPI
-
-添加 Key 时平台选 **Web 端（JSAPI）**，域名白名单只填生产域名 food.zxymiku.top，按控制台格式填写，不用 `*`。把 Key 存 Worker 变量 AMAP_WEB_KEY；配套安全码 securityJsCode 存 Worker Secret AMAP_SECURITY_JS_CODE。
-
-Web Key 会被浏览器使用，不能靠“藏进前端”保密；域名约束和配额才是有效边界。安全码经应用自己的 `/_AMapService` 代理使用，不发送给浏览器。开发 localhost 应使用单独开发 Key，不要清空正式 Key 的域名限制。[高德安全码说明](https://developer.amap.com/api/javascript-api-v2/guide/abc/jscode)。
-
-### Web 服务 Key
-
-另添加 **Web 服务** Key，作为 Worker Secret AMAP_REST_KEY。用于逆地理编码和附近 POI；如果控制台提供接口选择，只启用本项目需要的地理编码类能力，不申请其他数据管理权限。
-
-Workers 默认出口 IP 不固定，不要把校园电脑 IP 填成服务端白名单。需要强 IP 白名单时，先配置固定出口再绑定真实出口地址；当前通过服务端鉴权、使用配额和客户端不接触这个 Key 来限制调用。
-
-### Android Key
-
-另添加 **Android 平台** Key：
-
-- 包名：com.guet.foodshare。
-- 正式签名 SHA1：`15:12:5E:C6:61:AA:F9:D6:A2:34:D7:49:67:E0:B8:E9:D9:C5:69:68`。
-- 指纹也可在 android/signing-certificate.txt 核对。SHA1 是公开指纹，不是签名私钥。
-
-将 Key 存主仓库 Actions Secret AMAP_ANDROID_KEY。本地构建可写入被忽略的 android/local.properties。debug 签名与 release 签名不同；开发调试使用另一个绑定 debug SHA1 的 Key，不要更换现有正式签名。[Android Key 申请](https://developer.amap.com/api/maps-sdk-for-android/guide/create-project/get-key)。
+- Web：个人填写 Web 端（JSAPI）Key 与配套 securityJsCode，默认长期保存在本浏览器 localStorage，可选仅当前标签页。
+- Android：个人在应用内填写 Android Key，使用设置页复制的包名、当前签名 SHA-1 申请；可选填写 Web 服务 Key 以自动解析地址。系统密钥库加密保存。
+- 地图凭据直接供高德认证，不上传本项目服务器、GitHub、投稿或数据导出。前端本地存储不等于不可读取；细节见教程。
+- 大量使用、超额或收费服务可能需要缴费，请自行关注高德账户用量、价格和授权。
+- Worker 不再读取 AMAP_WEB_KEY、AMAP_SECURITY_JS_CODE、AMAP_REST_KEY；Android 不再将 AMAP_ANDROID_KEY 打包进 APK。旧变量可由管理员清理，旧公共代理与地址接口返回迁移提示。
 
 ## 10. Cloudflare：选择一种自动部署方式
 
@@ -275,7 +259,6 @@ Cloudflare 自动创建的 Build Token 可能附带本项目不用的 KV、R2 �
 | ANDROID_KEYSTORE_BASE64 | 现有 .secrets/guet-food-share-signing.p12 的 Base64 表示 | 仅签名构建任务使用，不是服务端管理凭据 |
 | ANDROID_KEYSTORE_PASSWORD | 管理员保存的签名库密码 | 不能提供给普通用户 |
 | ANDROID_KEY_ALIAS | 现有别名 guet-food-share | 别名本身不秘密，作为 Secret 是兼容现有工作流 |
-| AMAP_ANDROID_KEY | 第 9 节申请的正式 Android Key | 包名与正式证书 SHA1 绑定 |
 
 Base64 **不是加密**；签名库本身由密码保护，GitHub Secret 保护传输/存储，任务结束删除 runner 临时签名文件。签名只在主项目仓库使用，不放到 Web 或媒体仓库。
 
@@ -295,7 +278,7 @@ Base64 **不是加密**；签名库本身由密码保护，GitHub Secret 保护�
 | Worker vars | MEDIA_REPO | zxymiku/guet-food-share-media |
 | Worker vars | GITHUB_ANDROID_REPO_ID / GITHUB_WEB_REPO_ID | 第 5 节的仓库数字 ID |
 | Worker vars | REVIEWER_GITHUB_IDS | 审核员数字 ID，当前拥有者 95949338；不是用户名 |
-| Worker vars | GITHUB_CLIENT_ID / AMAP_WEB_KEY | 对应平台公开客户端标识，不代替 Secret |
+| Worker vars | GITHUB_CLIENT_ID | 对应平台公开客户端标识，不代替 Secret |
 | Worker bindings | DB | D1 绑定；ID 在 wrangler.jsonc，运行时不再使用数据库账号密码 |
 | Worker bindings | ASSETS | 静态文件绑定，不需要申请密钥 |
 | 主仓库 Actions vars | API_BASE_URL / WORKER_URL | https://food.zxymiku.top |
@@ -353,7 +336,7 @@ GitHub：主/Web 仓库各自的 Settings → Secrets and variables → Actions�
 - GitHub 用户反馈显示错误作者：共享密码才使用管理员 Token；GitHub 登录必须使用该用户的 App user token。不要把这两条流程合并。
 - 自动规范化未启动：DISPATCH_GITHUB_TOKEN 只选主仓库且具备 Contents write，主分支存在工作流文件。
 - 整理/发布回调 401：INTAKE_SECRET 与 PUBLISH_SECRET 不同；检查对应工作流保存位置和 Worker 对应值，不能互换。
-- Android 地图拒绝 Key：核对平台类型、包名与正式 SHA1；更新 AMAP_ANDROID_KEY 后需重新构建 APK。
+- Android 地图拒绝 Key：核对平台类型、包名与正式 SHA1；在应用“地图 API”中修改 Key 后重新启用，无需重新构建 APK。
 - 客户端访问到 workers.dev：更新旧 APK，并核对当前 API_BASE_URL；源码、生产变量和截图链接均应使用自己的域名，不用 workers.dev 作重试地址。
 
 轮换顺序一般是“创建受限新值 → 更新消费方 → 确认该功能 → 撤销旧值”。加密根密钥例外，不能直接覆盖。共享密码更换会主动使旧密码会话失效；GitHub App 授权可在用户 Settings → Applications → Authorized GitHub Apps 随时撤销。
