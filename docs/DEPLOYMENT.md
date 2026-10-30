@@ -6,7 +6,7 @@
 - Web：`zxymiku/guet-food-share-web`
 - 媒体：`zxymiku/guet-food-share-media`
 - Worker：`guet-food-share`
-- 服务地址：`https://guet-food-share.zxymiku.workers.dev`
+- 服务地址：`https://food.zxymiku.top`
 
 所有仓库公开。Web 是主项目的 submodule；主项目工作流读取 Web 内的共享规范化函数时会检出 submodule。
 
@@ -35,7 +35,7 @@
 
 本机 GitHub CLI 已登录，不代表应用可以永久使用该账号的全仓库 token。代码不会把 CLI token 写入 Worker 或 Android。请创建专用受限凭据并作为 Worker secret 设置。高德平台 Key 仍需你申请；Web JSAPI、Web 服务和 Android Key 是不同类型。
 
-OAuth App 的 Homepage 为正式 Origin，Callback 为 `https://guet-food-share.zxymiku.workers.dev/auth/callback`，scope 为 read:user。Android 使用系统浏览器、一次性代码和 PKCE，回调为 guetfood://login。
+OAuth App 的 Homepage 为正式 Origin，Callback 为 `https://food.zxymiku.top/auth/callback`，scope 为 read:user。Android 使用系统浏览器、一次性代码和 PKCE，回调为 guetfood://login。
 
 ## GitHub 审核自动化
 
