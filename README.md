@@ -31,13 +31,14 @@ Web 更新直接在 `web/` 内 commit、push 到独立仓库 main；完成 Cloud
 - 必填门店名、地址、地图位置和公开授权；可选推荐理由、前往方法、6 张图片与 2 个视频。
 - 媒体分块加密上传到 GitHub Releases，D1 只存元数据与加密草稿，不使用 R2 存储新媒体。
 - 用户登录 → 自动规范化 → 公开审核 PR → 人工合并 → 发布至地图。待审媒体限投稿者/审核员访问。
-- 双平台意见反馈：手动打开对应仓库 Issues，或填写文字并上传截图后自动发布 Issue（需配置 Issues 写权限）。
+- 双端共用共享密码：无需注册 GitHub 即可查看、上传美食并自动反馈，不能删除、修改或审核记录。管理员在 web 目录运行 `npm run password:setup` 设置密码。
+- 双平台意见反馈：密码用户由管理员账号代发；GitHub App 登录用户由自己的账号发布。反馈只投递到对应平台仓库，权限限定为 Issues。
 - Android 每周一北京时间 10:00 构建最新代码、签名并发布 GitHub Release，也可手动触发。GitHub 调度可能延迟。
 - Android 启动检查最新 Release；当前已是最新版时没有弹窗或提醒。新版本点击更新后下载并校验 SHA-256、包名、版本号与签名，再进入系统安装确认界面。
 
 ## 运行与配置
 
-详细见 [部署说明](docs/DEPLOYMENT.md) 与 [Web 说明](web/README.md)。
+详细见 [全部凭据申请与最小权限指南](docs/CREDENTIALS.md)、[部署说明](docs/DEPLOYMENT.md) 与 [Web 说明](web/README.md)。
 
 ```powershell
 cd web
@@ -48,7 +49,7 @@ npm run db:local
 npm run dev
 ```
 
-高德 Key、OAuth App 和专用 GitHub 服务端 token 需要配置后才能使用真实地图、登录、媒体上传及投稿投递。本机 CLI 登录只用于创建/上传仓库，没有被复制为应用服务端凭据。
+高德 Key、GitHub App 和专用受限 GitHub 服务端 token 需要配置后才能使用真实地图、登录、媒体上传及投稿投递。本机 CLI 登录只用于创建/上传仓库，没有被复制为应用服务端凭据。
 
 [下载最新 Android APK](https://github.com/zxymiku/guet-food-share/releases/latest) · [打开 Web](https://food.zxymiku.top)
 

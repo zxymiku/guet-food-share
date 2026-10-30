@@ -24,3 +24,14 @@
 Android 反馈版本 1.0.6 已完成签名构建并发布： https://github.com/zxymiku/guet-food-share/releases/tag/android-v1.0.6 。构建工作流：https://github.com/zxymiku/guet-food-share/actions/runs/41022277851 。真实自动创建 Issue 仍需 Worker 端配置具有两个目标仓库 Issues write 权限的专用 token，并完成 GitHub OAuth 登录配置。
 
 Web 反馈迁移和 Workers 部署已完成；线上 HTML 包含反馈表单，配置接口返回 Web/Android 的正确 Issues 地址。当前 automaticReady=false、screenshotsReady=false，需配置 GitHub 登录与服务端 Issues/媒体上传权限后才能真实自动发布。浏览器交互验收工具连接超时，本轮未完成页面交互验收；没有为此重复运行旧测试。
+
+## 共享密码、反馈作者与最小权限（当前版本）
+
+- 密码登录支持 Web/Android 共用同一验证器，无需注册 GitHub；可上传、查看和提交反馈，不可改删、审核或管理。会话按设备隔离，密码轮换使旧会话失效。
+- 集中验证通过：密码验证、设备身份恢复、错误限流、无明文泄露、禁止越权删除/改写/审核、读稿/发布密钥分离；密码反馈使用管理员 Token，GitHub 反馈使用用户自己的、按平台保存的 App Token，失效不会代发；加密保存与刷新已覆盖。
+- 媒体/OAuth/PKCE 的隔离集成检查及 Worker 打包通过。未每步重复运行旧的完整测试。
+- Android 1.0.7 已签名发布，包含密码登录与域名限制：https://github.com/zxymiku/guet-food-share/releases/tag/android-v1.0.7 。
+- Workers 生产入口已只保留 food.zxymiku.top，关闭 workers.dev 和预览 URL；Android 基础地址固定为自己的域名。
+- 已为生产生成并分别配置 INTAKE_SECRET / PUBLISH_SECRET；发布密钥仅放主仓库 production Environment。实际接口权限检查通过，没有新增或发布测试记录；旧 Worker 与 GitHub 的 PIPELINE_SECRET 已撤销。
+- 原密码由管理员通过交互命令自行设置，不生成公开默认密码。GitHub App、代发 PAT、媒体 PAT 等仍需按 CREDENTIALS.md 申请配置，未以本机 CLI Token 代替。
+- 当前测试均使用隔离数据库和模拟 GitHub；未向公开仓库创建测试 Issue，也未声称已用真实 GitHub App 完成联调。
