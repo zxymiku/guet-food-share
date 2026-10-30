@@ -1,6 +1,6 @@
 # 桂电美食分享：全部凭据申请、配置与最小权限指南
 
-本文对应当前源码。生产站点统一使用 **https://food.zxymiku.top**；Web、Android、登录回调、截图与安装包下载均使用这个应用域名。已关闭 workers.dev 与预览入口。只有用户主动选择 GitHub 登录/手动反馈时跳转 GitHub；地图 SDK 使用高德自己的服务。
+本文对应当前源码。生产站点统一使用 **https://food.zxymiku.top**；Web、Android、登录回调、截图与安装包下载均使用这个应用域名。已关闭 workers.dev 与预览入口。无需访问 GitHub 的 Android 最新安装包入口：https://food.zxymiku.top/download/android 。只有用户主动选择 GitHub 登录/手动反馈时跳转 GitHub；地图 SDK 使用高德自己的服务。
 
 ## 1. 先确定要启用哪些功能
 

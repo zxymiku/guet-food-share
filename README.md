@@ -51,7 +51,7 @@ npm run dev
 
 高德 Key、GitHub App 和专用受限 GitHub 服务端 token 需要配置后才能使用真实地图、登录、媒体上传及投稿投递。本机 CLI 登录只用于创建/上传仓库，没有被复制为应用服务端凭据。
 
-[下载最新 Android APK](https://github.com/zxymiku/guet-food-share/releases/latest) · [打开 Web](https://food.zxymiku.top)
+[下载最新 Android APK](https://food.zxymiku.top/download/android) · [打开 Web](https://food.zxymiku.top)
 
 ## Android 发布与更新
 

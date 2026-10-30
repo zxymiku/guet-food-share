@@ -35,3 +35,5 @@ Web 反馈迁移和 Workers 部署已完成；线上 HTML 包含反馈表单，�
 - 已为生产生成并分别配置 INTAKE_SECRET / PUBLISH_SECRET；发布密钥仅放主仓库 production Environment。实际接口权限检查通过，没有新增或发布测试记录；旧 Worker 与 GitHub 的 PIPELINE_SECRET 已撤销。
 - 原密码由管理员通过交互命令自行设置，不生成公开默认密码。GitHub App、代发 PAT、媒体 PAT 等仍需按 CREDENTIALS.md 申请配置，未以本机 CLI Token 代替。
 - 当前测试均使用隔离数据库和模拟 GitHub；未向公开仓库创建测试 Issue，也未声称已用真实 GitHub App 完成联调。
+
+已提供 https://food.zxymiku.top/download/android 固定安装包入口，重定向仅指向同域名的应用下载接口；新 APK 不依赖 workers.dev。
