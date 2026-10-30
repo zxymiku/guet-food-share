@@ -24,4 +24,4 @@ jobs:
       - run: node scripts/publish-places.mjs
         env:
           WORKER_URL: ${{ vars.WORKER_URL }}
-          PIPELINE_SECRET: ${{ secrets.PIPELINE_SECRET }}
+          PUBLISH_SECRET: ${{ secrets.PUBLISH_SECRET || secrets.PIPELINE_SECRET }}

@@ -23,4 +23,4 @@ jobs:
           SUBMISSION_ID: ${{ github.event.client_payload.id }}
           GITHUB_TOKEN: ${{ secrets.SUBMISSION_BOT_TOKEN || github.token }}
           WORKER_URL: ${{ vars.WORKER_URL }}
-          PIPELINE_SECRET: ${{ secrets.PIPELINE_SECRET }}
+          INTAKE_SECRET: ${{ secrets.INTAKE_SECRET || secrets.PIPELINE_SECRET }}

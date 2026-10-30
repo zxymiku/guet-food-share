@@ -20,18 +20,25 @@ class SecureStore(context: Context) {
                 .setBlockModes(KeyProperties.BLOCK_MODE_GCM).setEncryptionPaddings(KeyProperties.ENCRYPTION_PADDING_NONE).build())
         }.generateKey()
     }
-    var token: String?
-        get() = runCatching {
-            val raw = prefs.getString("token", null) ?: return null
-            val bytes = Base64.decode(raw, Base64.NO_WRAP)
-            val cipher = Cipher.getInstance("AES/GCM/NoPadding")
-            cipher.init(Cipher.DECRYPT_MODE, key(), GCMParameterSpec(128, bytes.copyOfRange(0, 12)))
-            String(cipher.doFinal(bytes.copyOfRange(12, bytes.size)), Charsets.UTF_8)
-        }.getOrNull()
-        set(value) {
-            if (value == null) { prefs.edit().remove("token").apply(); return }
-            val cipher = Cipher.getInstance("AES/GCM/NoPadding")
-            cipher.init(Cipher.ENCRYPT_MODE, key())
-            prefs.edit().putString("token", Base64.encodeToString(cipher.iv + cipher.doFinal(value.toByteArray()), Base64.NO_WRAP)).apply()
-        }
+    private fun read(name:String):String?=runCatching {
+        val raw=prefs.getString(name,null)?:return null
+        val bytes=Base64.decode(raw,Base64.NO_WRAP)
+        val cipher=Cipher.getInstance("AES/GCM/NoPadding")
+        cipher.init(Cipher.DECRYPT_MODE,key(),GCMParameterSpec(128,bytes.copyOfRange(0,12)))
+        String(cipher.doFinal(bytes.copyOfRange(12,bytes.size)),Charsets.UTF_8)
+    }.getOrNull()
+    private fun write(name:String,value:String?){
+        if(value==null){prefs.edit().remove(name).apply();return}
+        val cipher=Cipher.getInstance("AES/GCM/NoPadding");cipher.init(Cipher.ENCRYPT_MODE,key())
+        prefs.edit().putString(name,Base64.encodeToString(cipher.iv+cipher.doFinal(value.toByteArray()),Base64.NO_WRAP)).apply()
+    }
+    var token:String?
+        get()=read("token")
+        set(value){write("token",value)}
+    var authType:String?
+        get()=read("auth_type")
+        set(value){write("auth_type",value)}
+    var credentialDevice:String?
+        get()=read("credential_device")
+        set(value){write("credential_device",value)}
 }

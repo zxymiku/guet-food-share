@@ -38,7 +38,7 @@ class FeedbackController(
         images.clear();uploaded.clear()
         val content=LinearLayout(activity).apply{orientation=LinearLayout.VERTICAL;setPadding(dp(18),dp(8),dp(18),dp(8))}
         fun label(value:String)=TextView(activity).apply{text=value;textSize=12f;setPadding(0,dp(12),0,dp(5));content.addView(this)}
-        label("反馈会自动发布到 Android 主仓库。请先登录 GitHub。")
+        label("反馈自动发布到 Android 主仓库；密码登录由管理员代发，GitHub 登录使用你自己的账号。")
         label("标题 *（最多 100 字）")
         val title=EditText(activity).apply{hint="简要描述问题或建议";setSingleLine();filters=arrayOf(android.text.InputFilter.LengthFilter(100));content.addView(this)}
         label("反馈详情 *（最多 4000 字）")
@@ -54,7 +54,7 @@ class FeedbackController(
         val dialog=AlertDialog.Builder(activity).setTitle("自动反馈 · Android").setView(ScrollView(activity).apply{addView(content)})
             .setNegativeButton("取消",null).setPositiveButton("提交并创建 Issue",null).create()
         dialog.setOnShowListener{dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener{
-            if(!isLoggedIn()){error.text="请先在首页登录 GitHub，或使用手动反馈。";return@setOnClickListener}
+            if(!isLoggedIn()){error.text="请先使用共享密码或 GitHub 登录后自动反馈。";return@setOnClickListener}
             val heading=title.text.toString().trim();val detail=description.text.toString().trim()
             if(heading.isEmpty()||detail.isEmpty()||!consent.isChecked){error.text="请填写标题、详情，并确认公开反馈授权。";return@setOnClickListener}
             val snapshot=images.toList();val fingerprint=JSONArray().put(heading).put(detail).put(snapshot.joinToString("\n")).toString()

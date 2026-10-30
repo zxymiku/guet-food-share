@@ -83,7 +83,7 @@ class MainActivity : Activity() {
         setContentView(root)
         val top = LinearLayout(this)
         top.addView(text("桂电美食分享", 23f), LinearLayout.LayoutParams(0,dp(56),1f))
-        loginButton = button(if (store.token == null) "GitHub 登录" else "退出登录") { login() }
+        loginButton = button(if (store.token == null) "登录" else if(store.authType=="credential") "退出（密码）" else "退出登录") { login() }
         top.addView(loginButton); root.addView(top)
         root.addView(text("桂林电子科技大学 · 校园好味道", 18f))
         val controls = LinearLayout(this)
@@ -151,7 +151,27 @@ class MainActivity : Activity() {
         }.show()
     }
     private fun login() {
-        if (store.token != null) { store.token = null; loginButton.text = "GitHub 登录"; return }
+        if(store.token!=null){store.token=null;store.authType=null;loginButton.text="登录";return}
+        AlertDialog.Builder(this).setTitle("选择登录方式").setItems(arrayOf("密码凭证登录（无需 GitHub）","GitHub 登录")){_,which->if(which==0)passwordLogin()else githubLogin()}.setNegativeButton("取消",null).show()
+    }
+    private fun passwordLogin(){
+        val box=LinearLayout(this).apply{orientation=LinearLayout.VERTICAL;setPadding(dp(20),dp(8),dp(20),dp(8))}
+        box.addView(text("输入管理员提供的共享密码，可查看、上传美食并提交反馈；公开美食仍需审核，没有删除或管理权限。",12f))
+        val password=EditText(this).apply{hint="共享密码（12～128 字符）";inputType=android.text.InputType.TYPE_CLASS_TEXT or android.text.InputType.TYPE_TEXT_VARIATION_PASSWORD;filters=arrayOf(android.text.InputFilter.LengthFilter(128));box.addView(this)}
+        val error=TextView(this).apply{setTextColor(orange);textSize=12f;box.addView(this)}
+        val dialog=AlertDialog.Builder(this).setTitle("密码凭证登录").setView(box).setNegativeButton("取消",null).setPositiveButton("登录",null).create()
+        dialog.setOnDismissListener{password.text.clear()}
+        dialog.setOnShowListener{dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener{
+            val value=password.text.toString();if(value.length<12){error.text="密码至少 12 字符";return@setOnClickListener}
+            val submit=dialog.getButton(AlertDialog.BUTTON_POSITIVE);submit.isEnabled=false;password.isEnabled=false;error.text=""
+            executor.execute{try{
+                val data=JSONObject().put("password",value).put("client","android");store.credentialDevice?.let{data.put("deviceToken",it)}
+                val result=api.post("/api/auth/password",data);store.token=result.getString("token");store.credentialDevice=result.getString("deviceToken");store.authType="credential"
+                runOnUiThread{if(!isFinishing&&!isDestroyed){dialog.dismiss();loginButton.text="退出（密码）";toast("已通过密码登录，可查看和上传美食")}}
+            }catch(e:Exception){runOnUiThread{if(!isFinishing&&!isDestroyed){submit.isEnabled=true;password.isEnabled=true;error.text=e.message?:"登录失败，请重试"}}}}
+        }};dialog.show()
+    }
+    private fun githubLogin() {
         val bytes = ByteArray(32).also { SecureRandom().nextBytes(it) }
         val verifier = Base64.encodeToString(bytes,Base64.URL_SAFE or Base64.NO_WRAP or Base64.NO_PADDING)
         val challenge = Base64.encodeToString(MessageDigest.getInstance("SHA-256").digest(verifier.toByteArray()),Base64.URL_SAFE or Base64.NO_WRAP or Base64.NO_PADDING)
@@ -160,10 +180,10 @@ class MainActivity : Activity() {
     override fun onNewIntent(intent: Intent) { super.onNewIntent(intent); setIntent(intent); handleLogin(intent) }
     private fun handleLogin(intent: Intent?) {
         val uri = intent?.data ?: return
-        if (uri.scheme != "guet-food-share" || uri.host != "login") return
+        if (uri.scheme != "guetfood" || uri.host != "login") return
         val code = uri.getQueryParameter("code") ?: return; val verifier = prefs.getString("verifier",null) ?: return
         prefs.edit().remove("verifier").apply()
-        async { val result = api.post("/api/mobile/token",JSONObject().put("code",code).put("verifier",verifier)); store.token = result.getString("token"); runOnUiThread { loginButton.text = "退出登录"; toast("登录成功") } }
+        async { val result = api.post("/api/mobile/token",JSONObject().put("code",code).put("verifier",verifier)); store.token = result.getString("token"); store.authType="github"; runOnUiThread { loginButton.text = "退出登录"; toast("登录成功") } }
     }
     private fun open(url: String) { try { startActivity(Intent(Intent.ACTION_VIEW,Uri.parse(url))) } catch (_: Exception) { toast("没有可打开链接的应用") } }
     private fun field(parent: LinearLayout, title: String, hint: String = "", multiline: Boolean = false): EditText {

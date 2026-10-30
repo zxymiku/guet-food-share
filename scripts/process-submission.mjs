@@ -1,9 +1,10 @@
 import {normalize} from '../web/src/validation.js';
-const {SUBMISSION_ID:id,WORKER_URL,PIPELINE_SECRET,GITHUB_TOKEN,GITHUB_REPOSITORY:repo}=process.env;
+const {SUBMISSION_ID:id,WORKER_URL,GITHUB_TOKEN,GITHUB_REPOSITORY:repo}=process.env;
+const intakeSecret=process.env.INTAKE_SECRET||process.env.PIPELINE_SECRET;
 if(!/^[0-9a-f-]{36}$/.test(id||''))throw new Error('Invalid submission ID');
 if(!WORKER_URL?.startsWith('https://'))throw new Error('WORKER_URL must use HTTPS');
 async function gh(path,method='GET',body){const r=await fetch(`https://api.github.com/repos/${repo}${path}`,{method,headers:{Authorization:`Bearer ${GITHUB_TOKEN}`,Accept:'application/vnd.github+json','X-GitHub-Api-Version':'2022-11-28'},body:body?JSON.stringify(body):undefined});if(!r.ok)throw new Error(`GitHub request failed: ${r.status}`);return r.status===204?null:r.json();}
-const source=await fetch(`${WORKER_URL}/api/internal/submissions/${id}`,{headers:{Authorization:`Bearer ${PIPELINE_SECRET}`}});if(!source.ok)throw new Error(`Intake fetch failed: ${source.status}`);
+const source=await fetch(`${WORKER_URL}/api/internal/submissions/${id}`,{headers:{Authorization:`Bearer ${intakeSecret}`}});if(!source.ok)throw new Error(`Intake fetch failed: ${source.status}`);
 const raw=await source.json();if(raw.id!==id)throw new Error('ID mismatch');
 const data={id,...normalize(raw)}, branch=`food/${id}`,path=`data/places/${id}.json`;
 const metadata=await gh(''),base=metadata.default_branch;

@@ -1,8 +1,8 @@
 import java.util.Properties
 plugins { id("com.android.application"); id("org.jetbrains.kotlin.android") }
 val local = Properties().apply { rootProject.file("local.properties").takeIf { it.exists() }?.inputStream()?.use { load(it) } }
-val apiBase = (System.getenv("API_BASE_URL") ?: local.getProperty("API_BASE_URL") ?: "https://configure-your-worker.example").trimEnd('/')
-require(apiBase.startsWith("https://")) { "API_BASE_URL must use HTTPS" }
+val apiBase = (System.getenv("API_BASE_URL") ?: local.getProperty("API_BASE_URL") ?: "https://food.zxymiku.top").trimEnd('/')
+require(apiBase == "https://food.zxymiku.top") { "API_BASE_URL must use the project domain https://food.zxymiku.top" }
 android {
     namespace = "com.guet.foodshare"
     compileSdk = 35
