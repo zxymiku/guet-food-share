@@ -49,6 +49,8 @@ npm run dev
 
 高德 Key、OAuth App 和专用 GitHub 服务端 token 需要配置后才能使用真实地图、登录、媒体上传及投稿投递。本机 CLI 登录只用于创建/上传仓库，没有被复制为应用服务端凭据。
 
+[下载最新 Android APK](https://github.com/zxymiku/guet-food-share/releases/latest) · [打开 Web](https://food.zxymiku.top)
+
 ## Android 发布与更新
 
 仓库 Actions 中选择“桂电美食分享 · Android 发布”→ Run workflow。正式签名在 GitHub encrypted secrets 中；本机签名备份放在被 Git 忽略的 `.secrets/`，密码备份使用 Windows DPAPI 加密，不上传仓库。不要删除签名备份或随意替换签名，否则既有安装无法直接升级。

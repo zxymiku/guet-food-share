@@ -8,9 +8,11 @@
 - 实际创建三个公开 GitHub 仓库；Web 与媒体初始代码已上传。
 - 实际部署 Worker 与 D1 迁移，公开服务地址为 https://food.zxymiku.top 。
 - Android 签名已创建并保存在 GitHub encrypted secrets，本机凭据备份以 Windows DPAPI 加密。
-- Android 已在 GitHub Actions 完成正式签名构建并发布 android-v1.0.4（后续版本以 Releases/latest 为准）；首次构建的过时 SDK 包与 Kotlin 编译问题已修复。
-- 已验证自定义域名 /api/config 与 /api/places 返回正常，正在同步后续 Android 版本使用自定义域名。
+- Android 已在 GitHub Actions 完成正式签名构建并发布 android-v1.0.5（后续版本以 Releases/latest 为准）；首次构建的过时 SDK 包与 Kotlin 编译问题已修复。构建链接：https://github.com/zxymiku/guet-food-share/actions/runs/41020775013 。
+- 已验证自定义域名 /api/config 与 /api/places 返回正常，Android 1.0.5 已使用自定义域名；线上 /api/app-update 返回 available=true、versionCode=1005 与对应下载路径。
 - 真实高德地图、逆地理编码、GitHub OAuth 和正式媒体上传尚待配置平台 Key、OAuth App 与受限服务端 GitHub token 后联调。
 - Cloudflare API 的 Workers Builds 权限不足（403）。用户选择在控制台完成 Web 仓库绑定，绑定前不能声称每次提交已自动部署。
 
 本轮集成测试均使用模拟 GitHub，不会往公开仓库上传测试照片或视频。
+
+更新检查已使用公开 Releases/latest/download/update.json，规避 GitHub 匿名 REST 配额；最新清单和安装包无须用户 GitHub token。媒体上传和投稿投递仍需专用服务端 token。
