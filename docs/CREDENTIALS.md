@@ -305,6 +305,40 @@ Base64 **不是加密**；签名库本身由密码保护，GitHub Secret 保护�
 
 ## 13. 保存位置、轮换与排错
 
+### 出现“最新版本尚未部署，不能修改 Secret”时
+
+这是版本状态限制，不是 Token 的权限校验结果。控制台选择“保存版本”或运行 `wrangler versions upload` 会产生未部署的新版本；此时普通 `wrangler secret put` 会拒绝修改，以免无意发布别的配置。
+
+本项目通常使用直接部署流程。在确认本地 wrangler.jsonc 已包含本次修改（如新 Client ID），且当前代码是准备发布的代码后：
+
+```powershell
+cd C:\dev\food\web
+npm run deploy
+# 部署成功后再重新输入刚才保存失败的 Secret
+npx wrangler secret put DISPATCH_GITHUB_TOKEN
+```
+
+`npm run deploy` 会发布本地代码和配置到自己的域名，并保留已存在的 Secret。它不是“只更新 Secret”的命令：若控制台还有仅保存在远端的普通变量，先同步到配置文件，避免被本地 vars 覆盖。当前 GITHUB_CLIENT_ID 属于公开客户端标识，可以写入 wrangler.jsonc；Client Secret 与 Token 仍只能放 Secret。
+
+如果希望直接部署控制台已经保存的版本、避免以本地代码重建，先用 `npx wrangler versions list` 和 `npx wrangler deployments list` 核对版本，确认内容后执行：
+
+```powershell
+npx wrangler versions deploy 最新版本UUID@100% --yes
+# 成功后重试原 secret put 命令
+```
+
+其中“最新版本UUID”必须替换成列表里的真实 ID。不要部署未知内容的草稿，也不要在分流部署中把正在使用的旧版本误当最新版本。
+
+若有意采用“先保存、不立即发布”的版本流程：
+
+```powershell
+npx wrangler versions secret put DISPATCH_GITHUB_TOKEN
+# 记下输出的新版本 ID；其他 Secret 也可继续以 versions secret put 添加
+npx wrangler versions deploy 新版本UUID@100% --yes
+```
+
+`versions secret put` 只创建版本，不会自动使 Secret 在线上生效；全部填写好后，仍需部署最终新版本。也可以在控制台修改后选择“部署”，不要仅保存草稿。保存失败时输入过的值无法从 Worker 取回，请重新输入，不要发到 Issue 或聊天。[Cloudflare Secrets 与版本说明](https://developers.cloudflare.com/workers/configuration/secrets/)。
+
 Cloudflare：Worker → Settings → Variables and Secrets，秘密字段选 Secret/Encrypt，普通标识选普通变量。wrangler.jsonc 中的 vars 是公开源代码，不写任何真实密码或 Token。本地 .dev.vars 与 local.properties 被 Git 忽略，不会自动同步到生产。
 
 GitHub：主/Web 仓库各自的 Settings → Secrets and variables → Actions；PUBLISH_SECRET 放主仓库 production Environment；不要在两个仓库间无差别复制全部 Secrets。
