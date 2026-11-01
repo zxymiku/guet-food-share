@@ -327,7 +327,7 @@ class MainActivity : Activity() {
         fun draw(){
             val pool=visiblePlaces().filter{!decisionUnvisited||discovery.mark(it.getString("id")).optString("visit")!="visited"}
             val result=decisionDeck.draw(pool);cards.removeAllViews()
-            status.text=if(result.total==0)"当前条件没有候选，可调整筛选或取消“避开吃过”。" else "${result.total} 家可选 · 本组 ${result.places.size} 家 · 本轮还有 ${result.remaining} 家未展示"
+            status.text=if(result.total==0)"当前条件没有候选，可调整筛选或取消“避开吃过”。" else "${result.total} 家可选 · 本轮待看 ${result.remaining} 家"
             for(p in result.places){
                 val card=ArkUi.column(this,12);card.background=ArkUi.surface(ArkUi.ink)
                 card.addView(ArkUi.kicker(this,listOf(p.getString("category"),p.optString("subcategory")).filter{it.isNotBlank()}.joinToString(" / ")))
