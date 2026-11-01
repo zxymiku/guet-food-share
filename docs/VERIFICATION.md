@@ -50,3 +50,7 @@ Web 反馈迁移和 Workers 部署已完成；线上 HTML 包含反馈表单，�
 - Android 的 3 个 XML 可解析，Web 和 APK 内置教程字节一致。Android 新界面与设置页尚未完成原生截图或真机验证。
 - 按用户要求，Android 构建交给已有 GitHub Actions，停止本地构建与模拟器下载。本地尝试曾在依赖下载的 DNS 解析阶段失败，未得到 Kotlin 编译结果，不能作为编译通过的证据。
 - 本轮未推送代码、触发正式发布或部署生产环境；新版 Android 的成功构建与有效个人高德 Key 联调仍待 GitHub Actions 产物验收。发布前应用新增 D1 索引迁移 `0006_places_pagination.sql`。
+
+## 2026-11-01 远程验收
+
+本轮状态以 [双端重构最终记录](REFACTOR-2026-11.md) 为准。Web Actions 41319993541、Android CI 41319999009 均成功；Cloudflare 手动部署版本 1298865f-8903-4863-99e9-41b993f0fa8b 已上线。自动部署仍缺 GitHub Secret CLOUDFLARE_API_TOKEN。未执行本地编译/构建测试/完整冒烟，用户追加授权后执行了 Workers 发布打包与远程迁移。
