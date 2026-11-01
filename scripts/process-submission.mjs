@@ -6,7 +6,7 @@ if(!WORKER_URL?.startsWith('https://'))throw new Error('WORKER_URL must use HTTP
 async function gh(path,method='GET',body){const r=await fetch(`https://api.github.com/repos/${repo}${path}`,{method,headers:{Authorization:`Bearer ${GITHUB_TOKEN}`,Accept:'application/vnd.github+json','X-GitHub-Api-Version':'2022-11-28'},body:body?JSON.stringify(body):undefined});if(!r.ok)throw new Error(`GitHub request failed: ${r.status}`);return r.status===204?null:r.json();}
 const source=await fetch(`${WORKER_URL}/api/internal/submissions/${id}`,{headers:{Authorization:`Bearer ${intakeSecret}`}});if(!source.ok)throw new Error(`Intake fetch failed: ${source.status}`);
 const raw=await source.json();if(raw.id!==id)throw new Error('ID mismatch');
-const data={id,...normalize(raw)}, branch=`food/${id}`,path=`data/places/${id}.json`;
+const data={id,...normalize(raw,{categories:[{name:raw.category,children:[raw.subcategory||'']}]})}, branch=`food/${id}`,path=`data/places/${id}.json`;
 const metadata=await gh(''),base=metadata.default_branch;
 const ref=await gh(`/git/ref/heads/${encodeURIComponent(base)}`);
 const existing=await fetch(`https://api.github.com/repos/${repo}/git/ref/heads/${branch}`,{headers:{Authorization:`Bearer ${GITHUB_TOKEN}`}});
