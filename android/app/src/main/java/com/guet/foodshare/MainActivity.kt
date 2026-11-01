@@ -71,10 +71,12 @@ class MainActivity : Activity() {
     private var subcategoryFilter=""
     private var minRating=0.0
     private var budgetLimit:Double?=null
+    private var radiusLimit:Double?=null
     private var sortOrder="最新公开"
     private var browseOrigin:LatLng?=null
     private var browseLocating=false
-    private var lastRandom:String?=null
+    private lateinit var searchInput:EditText
+    private lateinit var filterSummary:TextView
     private var sharedOpened=false
     private val prefs by lazy { getSharedPreferences("settings", MODE_PRIVATE) }
     private val mainHandler = Handler(Looper.getMainLooper())
@@ -119,25 +121,26 @@ class MainActivity : Activity() {
         mapStatus=ArkUi.label(this,"地图未启用 · 公开地点可正常浏览",13f,ArkUi.muted).apply{accessibilityLiveRegion=View.ACCESSIBILITY_LIVE_REGION_POLITE};stage.addView(mapStatus)
         mapHost=FrameLayout(this);stage.addView(mapHost,LinearLayout.LayoutParams(-1,0,1f))
         val mapActions=LinearLayout(this)
-        mapActions.addView(button("◎ 定位填写"){locate()},LinearLayout.LayoutParams(0,-2,1f))
+        mapActions.addView(button("◎ 定位填写"){browseLocating=false;locatingForForm=false;locate()},LinearLayout.LayoutParams(0,-2,1f))
         mapActions.addView(button("＋ 选点投稿"){if(amap==null)settings() else {share();if(submitDialog!=null){picking=true;submitDialog?.hide();mapStatus.text="请点击实际门店位置 · 返回表单核对"}}},LinearLayout.LayoutParams(0,-2,1f))
         stage.addView(mapActions)
         directory=ArkUi.column(this,12);body.addView(directory,if(wide)LinearLayout.LayoutParams(0,-1,1f) else LinearLayout.LayoutParams(-1,0,1f))
-        val search=ArkUi.field(this,"搜索店名、地址、推荐理由").apply{contentDescription="搜索公开地点";addTextChangedListener(object:android.text.TextWatcher{
+        searchInput=ArkUi.field(this,"搜索店名、地址、菜品或标签").apply{contentDescription="搜索公开地点";addTextChangedListener(object:android.text.TextWatcher{
             override fun beforeTextChanged(s:CharSequence?,start:Int,count:Int,after:Int){}
             override fun onTextChanged(s:CharSequence?,start:Int,before:Int,count:Int){searchQuery=s.toString();mainHandler.removeCallbacks(searchRefresh);mainHandler.postDelayed(searchRefresh,180)}
             override fun afterTextChanged(s:android.text.Editable?){}
-        })};directory.addView(search)
+        })};directory.addView(searchInput)
         categoryChips=LinearLayout(this)
         directory.addView(HorizontalScrollView(this).apply{isHorizontalScrollBarEnabled=false;addView(categoryChips)})
         renderCategoryChips()
         val tools=LinearLayout(this);tools.addView(button("筛选 / 清单"){discoveryFilters()},LinearLayout.LayoutParams(0,-2,1f));tools.addView(ArkUi.button(this,"今天吃什么",true){randomPlace()},LinearLayout.LayoutParams(0,-2,1f));directory.addView(tools)
+        filterSummary=ArkUi.label(this,"全部公开地点",13f,ArkUi.muted);directory.addView(filterSummary)
         countLabel=ArkUi.kicker(this,"公开地点 · 正在读取");directory.addView(countLabel)
         list=ArkUi.column(this);directory.addView(ScrollView(this).apply{addView(list)},LinearLayout.LayoutParams(-1,0,1f))
         val dock=LinearLayout(this).apply{setPadding(dp(10),dp(8),dp(10),dp(8))}
-        exploreButton=button("探索地图"){setMode("map")};directoryButton=button("地点档案"){setMode("list")}
+        exploreButton=button("探索地图"){setMode("map")};directoryButton=button("找店 / 清单"){setMode("list")}
         dock.addView(exploreButton,LinearLayout.LayoutParams(0,-2,1f));dock.addView(directoryButton,LinearLayout.LayoutParams(0,-2,1f));dock.addView(ArkUi.button(this,"＋ 分享",true){share()},LinearLayout.LayoutParams(0,-2,1f));root.addView(ArkUi.rule(this));root.addView(dock)
-        showMapEmpty();setMode("map")
+        showMapEmpty();setMode("list")
         if(prefs.getBoolean("map_consent",false)&&!store.amapAndroidKey.isNullOrBlank())initMap(savedInstanceState)
         runCatching{val cache=java.io.File(filesDir,"public-places-cache.json");if(cache.exists()){val rows=JSONArray(cache.readText());places=(0 until rows.length()).map{rows.getJSONObject(it)};renderPlaces();countLabel.text="上次同步的地点 · 正在联网刷新"}}
         refresh();handleLogin(intent);updater.check();ArkUi.reveal(body)
@@ -213,9 +216,11 @@ class MainActivity : Activity() {
         val rebuildMarkers=amap!=null&&markerSignature!=signature
         if(rebuildMarkers){amap?.clear();selectedMarker=null;markerSignature=signature}
         countLabel.text="地点档案 / ${visible.size} 个匹配 · 共 ${places.size} 个公开"
+        filterSummary.text=discoverySummary()
         if(visible.isEmpty()){
             list.addView(ArkUi.label(this,if(places.isEmpty())"等你发现第一处好味道。" else "没有匹配的地点。",20f))
             list.addView(ArkUi.label(this,if(places.isEmpty())"分享真实门店，审核后每个人都能在自己的地图上看到。" else "试试其他分类或关键词。",14f,ArkUi.muted))
+            if(places.isNotEmpty())list.addView(button("清除找店筛选"){resetDiscovery()})
         }
         visible.forEachIndexed{index,p->
             val row=LinearLayout(this).apply{gravity=Gravity.CENTER_VERTICAL;setPadding(0,dp(10),0,dp(10));background=ArkUi.surface(if(p.optString("id")==activePlaceId)ArkUi.line else ArkUi.ink,ArkUi.ink)}
@@ -252,8 +257,37 @@ class MainActivity : Activity() {
         }.show()
     }
     private fun visiblePlaces():List<JSONObject>{
-        val filtered=places.filter{p->val mark=discovery.mark(p.getString("id"));val r=p.optJSONObject("rating");(categoryFilter=="全部"||p.getString("category")==categoryFilter)&&(subcategoryFilter.isEmpty()||p.optString("subcategory")==subcategoryFilter)&&(savedFilter.isEmpty()||if(savedFilter=="favorite")mark.optBoolean("favorite") else mark.optString("visit")==savedFilter)&&(minRating==0.0||((r?.optInt("count")?:0)>0&&(r?.optDouble("average")?:0.0)>=minRating))&&(budgetLimit==null||(!p.isNull("pricePerPerson")&&p.optDouble("pricePerPerson")<=budgetLimit!!))&&(p.getString("name")+p.getString("address")+p.optString("description")+p.optString("subcategory")+p.optString("menuPrice")+p.optJSONArray("tags")).contains(searchQuery,true)}
+        val filtered=places.filter{p->
+            val mark=discovery.mark(p.getString("id"));val rating=p.optJSONObject("rating")
+            (categoryFilter=="全部"||p.getString("category")==categoryFilter)&&
+                (subcategoryFilter.isEmpty()||p.optString("subcategory")==subcategoryFilter)&&
+                (savedFilter.isEmpty()||if(savedFilter=="favorite")mark.optBoolean("favorite") else mark.optString("visit")==savedFilter)&&
+                (minRating==0.0||((rating?.optInt("count")?:0)>0&&(rating?.optDouble("average")?:0.0)>=minRating))&&
+                (budgetLimit==null||(!p.isNull("pricePerPerson")&&p.optDouble("pricePerPerson")<=budgetLimit!!))&&
+                (radiusLimit==null||(browseOrigin?.let{Discovery.distance(it,p)<=radiusLimit!!}?:false))&&
+                listOf(p.getString("name"),p.getString("address"),p.optString("description"),p.optString("subcategory"),p.optString("menuPrice"),p.optJSONArray("tags")).joinToString(" ").contains(searchQuery.trim(),true)
+        }
         return when(sortOrder){"口碑"->filtered.sortedByDescending{Discovery.reputation(it)};"人均价格"->filtered.sortedBy{if(it.isNull("pricePerPerson"))Double.POSITIVE_INFINITY else it.optDouble("pricePerPerson")};"店名"->filtered.sortedBy{it.getString("name")};"距离"->browseOrigin?.let{o->filtered.sortedBy{Discovery.distance(o,it)}}?:filtered;else->filtered}
+    }
+    private fun discoverySummary():String {
+        val parts=mutableListOf<String>()
+        if(categoryFilter!="全部")parts.add(categoryFilter)
+        if(searchQuery.isNotBlank())parts.add(searchQuery.trim())
+        if(subcategoryFilter.isNotBlank())parts.add(subcategoryFilter)
+        mapOf("favorite" to "收藏","want" to "想去","visited" to "吃过")[savedFilter]?.let{parts.add(it)}
+        if(minRating>0)parts.add("评分 ≥ $minRating")
+        budgetLimit?.let{parts.add("人均 ≤ ¥$it")}
+        radiusLimit?.let{parts.add("$it km 内")}
+        return parts.joinToString(" · ").ifEmpty{"全部公开地点"}
+    }
+    private fun resetDiscovery(){
+        savedFilter="";subcategoryFilter="";minRating=0.0;budgetLimit=null;radiusLimit=null
+        categoryFilter="全部";sortOrder="最新公开";searchQuery="";searchInput.setText("")
+        renderCategoryChips();renderPlaces()
+    }
+    private fun locateForBrowsing(){
+        if(amap==null){toast("附近范围需要先设置个人地图 API；其他筛选仍可使用");settings();return}
+        browseLocating=true;locate()
     }
     private fun discoveryFilters(){
         val box=ArkUi.column(this,16)
@@ -262,12 +296,55 @@ class MainActivity : Activity() {
         val children=mutableListOf("");val rows=categoryConfig.getJSONArray("categories");for(i in 0 until rows.length()){val a=rows.getJSONObject(i).getJSONArray("children");for(j in 0 until a.length())if(a.getString(j) !in children)children.add(a.getString(j))}
         val child=choose("子分类",children.map{it.ifEmpty{"全部"}},children.indexOf(subcategoryFilter))
         val ratings=listOf(0.0,3.0,4.0,4.5);val rating=choose("最低评分",listOf("不限","3 分","4 分","4.5 分"),ratings.indexOf(minRating))
+        val radii=listOf<Double?>(null,0.5,1.0,3.0,5.0)
+        val radius=choose(if(browseOrigin==null)"附近范围（请先定位）" else "附近范围（直线距离）",listOf("不限","500 米内","1 公里内","3 公里内","5 公里内"),radii.indexOf(radiusLimit)).apply{isEnabled=browseOrigin!=null}
         val sorts=listOf("最新公开","口碑","人均价格","店名","距离");val sort=choose("排序",sorts,sorts.indexOf(sortOrder))
         val budget=field(box,"人均上限（元，未知请留空）").apply{inputType=android.text.InputType.TYPE_CLASS_NUMBER or android.text.InputType.TYPE_NUMBER_FLAG_DECIMAL;setText(budgetLimit?.toString()?:"")}
-        box.addView(text("清单仅存本机。距离为直线距离，定位仅存内存。口碑使用 5 条 3.5 分的先验平滑，避免单条满分霸榜。价格和标签由用户提供，过敏原须向门店确认。",13f))
-        AlertDialog.Builder(this).setTitle("筛选与排序").setView(ScrollView(this).apply{addView(box)}).setNegativeButton("重置"){_,_->savedFilter="";subcategoryFilter="";minRating=0.0;budgetLimit=null;categoryFilter="全部";sortOrder="最新公开";renderCategoryChips();renderPlaces()}.setPositiveButton("应用"){_,_->savedFilter=savedValues[saved.selectedItemPosition];subcategoryFilter=children[child.selectedItemPosition];minRating=ratings[rating.selectedItemPosition];budgetLimit=budget.text.toString().toDoubleOrNull()?.takeIf{it.isFinite()&&it in 0.0..10000.0};sortOrder=sorts[sort.selectedItemPosition];if(sortOrder=="距离"&&browseOrigin==null){browseLocating=true;locate()};renderPlaces();setMode("list")}.show()
+        box.addView(text("清单仅存本机。距离为直线距离，定位仅存内存。口碑使用 5 条 3.5 分的先验平滑。价格和营业信息由用户提供，以门店为准。",13f))
+        val nearby=button("定位附近（不投稿）"){};box.addView(nearby)
+        val dialog=AlertDialog.Builder(this).setTitle("筛选与排序").setView(ScrollView(this).apply{addView(box)}).setNegativeButton("重置"){_,_->resetDiscovery()}.setPositiveButton("应用",null).show()
+        nearby.setOnClickListener{dialog.dismiss();locateForBrowsing()}
+        dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener{
+            val raw=budget.text.toString().trim();val amount=raw.toDoubleOrNull()
+            if(raw.isNotEmpty()&&(amount==null||!amount.isFinite()||amount !in 0.0..10000.0)){budget.error="请输入 0～10000 元，或留空";return@setOnClickListener}
+            savedFilter=savedValues[saved.selectedItemPosition];subcategoryFilter=children[child.selectedItemPosition]
+            minRating=ratings[rating.selectedItemPosition];radiusLimit=radii[radius.selectedItemPosition];budgetLimit=amount
+            sortOrder=sorts[sort.selectedItemPosition];dialog.dismiss()
+            if(sortOrder=="距离"&&browseOrigin==null)locateForBrowsing()
+            renderPlaces();setMode("list")
+        }
     }
-    private fun randomPlace(){val all=visiblePlaces();val candidates=if(all.size>1)all.filter{it.optString("id")!=lastRandom} else all;if(candidates.isEmpty()){toast("当前筛选没有候选地点，请重置筛选或上传真实门店");return};val p=candidates.random();lastRandom=p.getString("id");detail(p)}
+    private val decisionDeck=DecisionDeck()
+    private var decisionUnvisited=false
+    private fun randomPlace(){
+        val box=ArkUi.column(this,16)
+        val scope=text("当前范围："+discoverySummary(),13f);box.addView(scope)
+        val unvisited=CheckBox(this).apply{text="这次避开本机标记“吃过”的店";isChecked=decisionUnvisited;setTextColor(ArkUi.paper);minHeight=dp(48)};box.addView(unvisited)
+        val status=text("");status.accessibilityLiveRegion=View.ACCESSIBILITY_LIVE_REGION_POLITE;box.addView(status)
+        val cards=ArkUi.column(this);box.addView(cards)
+        box.addView(text("随机抽选，不是推荐排名。同一轮看完前不重复；价格、距离与评价仅供比较，不代表实时营业。",13f))
+        val dialog=AlertDialog.Builder(this).setTitle("今天吃什么").setView(ScrollView(this).apply{addView(box)}).setNegativeButton("关闭",null).setNeutralButton("调整筛选"){_,_->discoveryFilters()}.setPositiveButton("换一组",null).show()
+        fun draw(){
+            val pool=visiblePlaces().filter{!decisionUnvisited||discovery.mark(it.getString("id")).optString("visit")!="visited"}
+            val result=decisionDeck.draw(pool);cards.removeAllViews()
+            status.text=if(result.total==0)"当前条件没有候选，可调整筛选或取消“避开吃过”。" else "${result.total} 家可选 · 本组 ${result.places.size} 家 · 本轮还有 ${result.remaining} 家未展示"
+            for(p in result.places){
+                val card=ArkUi.column(this,12);card.background=ArkUi.surface(ArkUi.ink)
+                card.addView(ArkUi.kicker(this,listOf(p.getString("category"),p.optString("subcategory")).filter{it.isNotBlank()}.joinToString(" / ")))
+                card.addView(text(p.getString("name"),21f).apply{typeface=Typeface.DEFAULT_BOLD});card.addView(text(p.getString("address")))
+                val rating=p.optJSONObject("rating")
+                val facts=mutableListOf(if(p.isNull("pricePerPerson"))"人均未知" else "参考人均 ¥${p.optDouble("pricePerPerson")}",if((rating?.optInt("count")?:0)>0)"%.1f 分 · %d 条评价".format(rating!!.optDouble("average"),rating.optInt("count")) else "暂无评价")
+                browseOrigin?.let{facts.add("直线距离 %.1f km".format(Discovery.distance(it,p)))}
+                card.addView(text(facts.joinToString(" · ")))
+                if(p.optString("menuPrice").isNotBlank())card.addView(ArkUi.label(this,p.optString("menuPrice"),13f,ArkUi.muted).apply{maxLines=4;ellipsize=android.text.TextUtils.TruncateAt.END})
+                card.addView(ArkUi.button(this,"就看这家 ↗",true){dialog.dismiss();detail(p)})
+                cards.addView(card);cards.addView(ArkUi.rule(this,true))
+            }
+            dialog.getButton(AlertDialog.BUTTON_POSITIVE).apply{isEnabled=result.total>3;text=if(result.total<=3)"已展示全部候选" else if(result.remaining>0)"换一组" else "开始新一轮"}
+        }
+        unvisited.setOnCheckedChangeListener{_,checked->decisionUnvisited=checked;draw()}
+        dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener{draw()};draw()
+    }
     private fun placeTools(p:JSONObject,content:LinearLayout){
         val id=p.getString("id");val saved=button(if(discovery.mark(id).optBoolean("favorite"))"取消收藏" else "收藏到本机"){};saved.setOnClickListener{runCatching{val value=!discovery.mark(id).optBoolean("favorite");discovery.update(id,favorite=value);saved.text=if(value)"取消收藏" else "收藏到本机";renderPlaces()}.onFailure{toast(it.message?:"保存失败")}};content.addView(saved)
         content.addView(button("标记想去 / 吃过"){AlertDialog.Builder(this).setItems(arrayOf("未标记","想去","吃过")){_,which->runCatching{discovery.update(id,visit=listOf("","want","visited")[which]);renderPlaces();toast("已保存在本机")}.onFailure{toast(it.message?:"保存失败")}}.show()})
@@ -364,7 +441,7 @@ class MainActivity : Activity() {
         val address = field(form,"门店地址 *"); addressInput=address; autoAddress?.let {address.setText(it)}; lngInput = field(form,"高德经度 *","例如 110.299121"); latInput = field(form,"高德纬度 *","例如 25.274215")
         selected?.let { lngInput!!.setText(it.longitude.toString()); latInput!!.setText(it.latitude.toString()) }
         form.addView(button("在地图上选点") { if(amap==null)toast("请先启用并配置高德地图") else { picking=true; setMode("map");submitDialog?.hide(); toast("请点击地图上的门店位置") } })
-        form.addView(button("◎ 定位并自动填写地址") { locatingForForm=true; locate() })
+        form.addView(button("◎ 定位并自动填写地址") { browseLocating=false;locatingForForm=true; locate() })
         val price=field(form,"人均价格（元，选填）").apply{inputType=android.text.InputType.TYPE_CLASS_NUMBER or android.text.InputType.TYPE_NUMBER_FLAG_DECIMAL}
         val hours=field(form,"营业时间（选填）");val tags=field(form,"标签（逗号分隔，最多 8 个）")
         val description = field(form,"推荐理由（选填）",multiline=true); val directions = field(form,"如何前往（选填）",multiline=true)
@@ -436,16 +513,16 @@ class MainActivity : Activity() {
         if(checkSelfPermission(Manifest.permission.ACCESS_FINE_LOCATION)!=PackageManager.PERMISSION_GRANTED && checkSelfPermission(Manifest.permission.ACCESS_COARSE_LOCATION)!=PackageManager.PERMISSION_GRANTED){requestPermissions(arrayOf(Manifest.permission.ACCESS_FINE_LOCATION,Manifest.permission.ACCESS_COARSE_LOCATION),200);return}
         stopLocation()
         val manager=getSystemService(LOCATION_SERVICE) as LocationManager;locationManager=manager
-        val provider=when {manager.isProviderEnabled(LocationManager.GPS_PROVIDER)&&checkSelfPermission(Manifest.permission.ACCESS_FINE_LOCATION)==PackageManager.PERMISSION_GRANTED->LocationManager.GPS_PROVIDER;manager.isProviderEnabled(LocationManager.NETWORK_PROVIDER)->LocationManager.NETWORK_PROVIDER;else->{toast("请开启系统定位，或手动选点");return}}
+        val provider=when {manager.isProviderEnabled(LocationManager.GPS_PROVIDER)&&checkSelfPermission(Manifest.permission.ACCESS_FINE_LOCATION)==PackageManager.PERMISSION_GRANTED->LocationManager.GPS_PROVIDER;manager.isProviderEnabled(LocationManager.NETWORK_PROVIDER)->LocationManager.NETWORK_PROVIDER;else->{browseLocating=false;locatingForForm=false;toast("请开启系统定位，或手动选点");return}}
         val listener=object:LocationListener {
-            override fun onLocationChanged(location:Location){stopLocation();val point=CoordinateConverter(this@MainActivity).from(CoordinateConverter.CoordType.GPS).coord(LatLng(location.latitude,location.longitude)).convert();amap?.animateCamera(CameraUpdateFactory.newLatLngZoom(point,17f));if(browseLocating){browseLocating=false;browseOrigin=point;renderPlaces();toast("已按直线距离排序，位置不会上传");return};selected=point
+            override fun onLocationChanged(location:Location){stopLocation();val point=CoordinateConverter(this@MainActivity).from(CoordinateConverter.CoordType.GPS).coord(LatLng(location.latitude,location.longitude)).convert();amap?.animateCamera(CameraUpdateFactory.newLatLngZoom(point,17f));if(browseLocating){browseLocating=false;browseOrigin=point;sortOrder="距离";renderPlaces();toast("已按直线距离排序，可在筛选中设置范围；位置不会上传");return};selected=point
                 if(locatingForForm){locatingForForm=false;lngInput?.setText(point.longitude.toString());latInput?.setText(point.latitude.toString())}else if(store.token!=null){share()}
                 if(store.token!=null)resolveAddress(point) else toast("已定位，请登录后自动填写投稿")}
             @Deprecated("Legacy callback") override fun onStatusChanged(provider:String?,status:Int,extras:Bundle?){}
             override fun onProviderEnabled(provider:String){}
             override fun onProviderDisabled(provider:String){}
         };locationListener=listener
-        try { manager.requestLocationUpdates(provider,0L,0f,listener,Looper.getMainLooper());mainHandler.postDelayed({if(locationListener!=null){stopLocation();toast("定位超时，请手动选点")}},15000) } catch (_: SecurityException){toast("定位权限不可用")}
+        try { manager.requestLocationUpdates(provider,0L,0f,listener,Looper.getMainLooper());mainHandler.postDelayed({if(locationListener===listener){stopLocation();browseLocating=false;locatingForForm=false;toast("定位超时，可重试或手动选点")}},15000) } catch (_: SecurityException){stopLocation();browseLocating=false;locatingForForm=false;toast("定位权限不可用")}
     }
     private fun resolveAddress(point:LatLng){
         val key=store.amapRestKey
@@ -456,7 +533,7 @@ class MainActivity : Activity() {
         }catch(e:Exception){runOnUiThread{toast("坐标已填写，地址请手动填写："+e.message)}}}
     }
     private fun stopLocation(){locationListener?.let { locationManager?.removeUpdates(it) };locationListener=null}
-    override fun onRequestPermissionsResult(requestCode:Int,permissions:Array<out String>,grantResults:IntArray){super.onRequestPermissionsResult(requestCode,permissions,grantResults);if(requestCode==200){if(grantResults.any{it==PackageManager.PERMISSION_GRANTED})locate()else toast("未授予定位权限，仍可手动选点")}}
+    override fun onRequestPermissionsResult(requestCode:Int,permissions:Array<out String>,grantResults:IntArray){super.onRequestPermissionsResult(requestCode,permissions,grantResults);if(requestCode==200){if(grantResults.any{it==PackageManager.PERMISSION_GRANTED})locate()else {browseLocating=false;locatingForForm=false;toast("未授予定位权限，仍可手动选点")}}}
     @Deprecated("Framework back navigation")
     override fun onBackPressed(){if(picking&&submitDialog!=null){picking=false;submitDialog?.show();mapStatus.text="高德地图 · 个人 API"}else super.onBackPressed()}
     override fun onResume(){super.onResume();mapView?.onResume();if(::updater.isInitialized)updater.resumeInstall()}
