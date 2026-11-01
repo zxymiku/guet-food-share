@@ -54,3 +54,14 @@ Web 反馈迁移和 Workers 部署已完成；线上 HTML 包含反馈表单，�
 ## 2026-11-01 远程验收
 
 本轮状态以 [双端重构最终记录](REFACTOR-2026-11.md) 为准。Web Actions 41319993541、Android CI 41319999009 均成功；Cloudflare 手动部署版本 1298865f-8903-4863-99e9-41b993f0fa8b 已上线。自动部署仍缺 GitHub Secret CLOUDFLARE_API_TOKEN。未执行本地编译/构建测试/完整冒烟，用户追加授权后执行了 Workers 发布打包与远程迁移。
+
+## 2026-11-01 同类调研后的发现与治理优化
+
+最新功能矩阵、架构审查、文件清单、逐项验收与阻塞操作见 [产品优化记录](PRODUCT-RESEARCH-2026-11.md)。历史段落保留当时事实，当前能力以最新记录为准。
+
+- Web [41321983170](https://github.com/zxymiku/guet-food-share-web/actions/runs/41321983170) 成功：26项回归、Worker打包、桌面与竖屏重点交互；4张远程截图已静态查看。
+- Android [41321997505](https://github.com/zxymiku/guet-food-share/actions/runs/41321997505) 编译成功；[41322682319](https://github.com/zxymiku/guet-food-share/actions/runs/41322682319) 正式签名发布成功，Release android-v1.0.9（versionCode1009）。源码60f9a30，未完成真机和真实高德联调。
+- Cloudflare远程0008迁移和已授权Workers发布成功，版本 **2b0f73f2-16be-4aa2-8ffb-4d5493a93011**；业务代码Web f5fba58。后续e79e048仅部署工作流/说明修正。生产只读检查首页/分类/地点/教程200、未知地点404、匿名审核403，未写测试内容。
+- 自动部署 [41321983371](https://github.com/zxymiku/guet-food-share-web/actions/runs/41321983371) 凭据检查仍失败：缺CLOUDFLARE_API_TOKEN；Account ID已有。手动成功不等于自动恢复。
+- 最终Web提交e79e048的 [41322922506](https://github.com/zxymiku/guet-food-share-web/actions/runs/41322922506) 再次成功；[自动部署41322922385](https://github.com/zxymiku/guet-food-share-web/actions/runs/41322922385) 仍被同一Secret阻塞。生产更新接口已返回1.0.9/1009、正确大小和与Release一致的SHA-256。
+- 本地没有编译/构建测试、npm test、dry-run、完整冒烟或运行浏览器。只有静态检查、读取远程日志/截图、经追加授权的远程迁移和发布必要打包。首轮失败均依远程日志修复后推送，详见产品优化记录。

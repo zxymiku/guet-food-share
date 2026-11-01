@@ -112,4 +112,56 @@
 
 ## 验证与发布
 
-所有编译、单元/集成回归、Worker打包与重点界面检查在 GitHub Actions 完成。本地只进行语法、配置、XML和差异检查；部署沿用用户已授权的 Workers 推送，先远程迁移再发布。不会向生产插入测试地点、评价或举报。最终结果追加于下文，失败和外部阻塞如实记录。
+所有编译、单元/集成回归、Worker打包与重点界面检查在 GitHub Actions 完成。本地只进行语法、配置、XML和差异检查；部署沿用用户已授权的 Workers 推送，先远程迁移再发布。未向生产插入测试地点、评价或举报。
+
+### 已取得的远程结果
+
+- 功能提交：Web `f15db7c`，Android/主仓库 `559897e`；后续 Web `50ab748` 修复旧测试数据库迁移初始化，`f5fba58` 固定浏览器 CI 为受支持的 Ubuntu 24.04，`e79e048` 同步部署文档及远程教程生成步骤。主仓库 `60f9a30` 为本次签名 APK 的源码提交；后续主仓库仅同步子模块和文档。
+- [Web CI 41321983170](https://github.com/zxymiku/guet-food-share-web/actions/runs/41321983170) 成功：26项回归全部通过、Worker dry-run 打包通过、桌面1440×1000和竖屏390×844重点交互通过。四张截图作为 interface-review 工件上传，已下载做静态视觉审查。截图使用隔离地点/API，不是真实高德认证。
+- [Android CI 41321997505](https://github.com/zxymiku/guet-food-share/actions/runs/41321997505) 成功，生成 debug APK；[正式签名发布 41322682319](https://github.com/zxymiku/guet-food-share/actions/runs/41322682319) 成功，已发布 [Android 1.0.9](https://github.com/zxymiku/guet-food-share/releases/tag/android-v1.0.9)，versionCode=1009，签名沿用现有凭据。
+- APK 大小19,840,058字节，GitHub资产摘要 SHA-256 为 `45d331b515f7739f891969346e980266f1774242367838f9c0041eb23b525378`。正式安装包与 update.json 由同一签名工作流生成，不把 debug 工件冒称正式版本。应用域名的更新接口有5分钟缓存，发布后可能短暂返回旧版本。
+- Cloudflare 远程 D1 成功应用 `0008_discovery_trust.sql`（9条SQL），再执行已授权的 `npm run deploy` 成功。Worker版本 **2b0f73f2-16be-4aa2-8ffb-4d5493a93011**，业务代码对应 Web `f5fba58`；后续 `e79e048` 仅文档/部署工作流，无运行时代码差异。
+- [生产站点](https://food.zxymiku.top) 只读检查：首页200且含新增筛选，分类200且为后街/前街/餐厅，公开地点200，未知地点404，匿名审核队列403。教程 `.html` 正常跳转 `/amap-guide`，200且允许同源iframe，内容包含新功能说明。公开地点目前为空，不能由此声称真实数据/地图跨用户联调通过。
+- [自动部署 41321983371](https://github.com/zxymiku/guet-food-share-web/actions/runs/41321983371) **失败**：缺少 GitHub Secret `CLOUDFLARE_API_TOKEN`；Account ID变量已配置。Wrangler本机OAuth可部署但没有 Workers Builds Configuration 权限，Builds API 403，无法代查控制台的Git集成。手动部署成功不改变自动部署未通过的结论。
+- 首轮 Web CI 41321554412 因旧反馈测试未应用0008迁移失败；统一所有隔离数据库使用完整迁移序列后，41321663100 的全部业务回归通过，但固定 Playwright1.56.1不支持升级后的 ubuntu-latest26.04，界面依赖安装失败。固定兼容runner后上述最终检查通过。没有以删除断言或跳过失败项掩盖问题。
+- 最终Web提交 `e79e048` 的 [CI 41322922506](https://github.com/zxymiku/guet-food-share-web/actions/runs/41322922506) 再次成功；对应 [自动部署41322922385](https://github.com/zxymiku/guet-food-share-web/actions/runs/41322922385) 仍因缺同一部署Secret失败。生产 `/api/app-update` 已实读返回1.0.9、versionCode1009及与Release一致的SHA-256和大小。
+- 本地未执行 Gradle、npm test、构建测试、Wrangler dry-run、完整冒烟或本地浏览器运行。Wrangler发布会进行必要打包，按用户追加授权作为发布操作记录，不将其当作本地测试结论。
+
+### 本轮验收表
+
+“通过”限定为表中实际检查范围；原生真机交互、真实地图及外部凭据事项单独列出。
+
+| 需求/优化 | 实现位置 | 验证方式 | 结果 | 备注 |
+|---|---|---|---|---|
+| 同类功能调研与适用性审查 | 本文来源表、功能矩阵、架构审查 | 官方产品文档与代码对照 | 通过 | 公开功能分类目录，包含暂缓原因，不承诺穷尽全部产品 |
+| 双端统一发现与决策 | Web discovery/app/index/style；Android Discovery/MainActivity | 纯逻辑CI、Web重点交互/截图、Android编译 | 通过 | 收藏/想去/吃过仅本机；随机仅使用筛选结果 |
+| 分类/评分/预算与五种排序 | 双端可见列表、discovery helpers | CI排序/预算/距离/标签断言 | 通过 | 距离为直线；口碑公式公开；未知价格不假装免费 |
+| 投稿可选信息与完整导出 | validation、place-data、双端表单/详情 | CI白名单与字段逐项断言 | 通过 | 原有优缺点/菜单、结构化人均/营业时间/标签都选填 |
+| 公开记录与跨Key边界 | places API、双端Marker、数据契约 | 既有分页/凭据隔离回归和生产只读 | 部分通过 | 真实地图认证和有真实地点的交叉显示待个人Key联调 |
+| 评价时间分页与显式评分 | reviews/pagination、双端评价UI | 101条评价CI、Android编译 | 通过 | 时间+ID游标，分数无默认5分 |
+| 本人撤回及防刷保留 | reviews user_id/removed_at、0008 | CI归属403与撤回后重评429 | 通过 | 账号/IP/设备均服务端限额；旧无作者记录需举报 |
+| 超100条本人投稿管理 | worker游标、双端mine | CI103条同时间戳无丢失 | 通过 | 身份丢失无法恢复，未声称跨设备所有权 |
+| 举报、审核隐藏/恢复与审计 | reports/worker/0008、双端审核界面 | CI去重、越权、预览、隐藏/恢复 | 通过 | 举报不自动下架；队列最近100条，规模增长需补游标 |
+| 地点分享及Android入口 | 双端系统分享、/?place、Manifest | Web交互/静态URL审查、Android编译 | 通过实现检查 | HTTPS VIEW入口未设置域名autoVerify，不保证各系统自动唤起 |
+| 弱网与公开缓存 | 双端请求/重试/公开缓存、独立清除入口 | 静态审查、CI存储错误边界 | 通过实现检查 | 旧公开文本可能过期；不承诺离线底图/媒体或原生弱网实测 |
+| Ark视觉与原生体验 | 既有Ark组件、本轮筛选/工具/评价布局 | Web远程桌面/竖屏截图 | 部分通过 | Android仅编译/签名通过，真机视觉与六轴maximal复核待完成 |
+| 教程/权限/部署文档一致性 | README、CREDENTIALS、DEPLOYMENT、PLACE-DATA、教程HTML | 静态对照、CI iframe、线上响应头 | 通过 | 移除旧“密码不可撤回”“仅手动测试”“部署旧开关”误导 |
+| 编译及正式APK | Android CI与签名工作流 | GitHub远程构建/Release资产 | 通过 | 1.0.9，未以构建通过替代真机使用验收 |
+| Workers/D1正式发布 | 0008、wrangler配置 | 远程迁移/发布版本/线上响应 | 通过 | 未写生产测试数据 |
+| Cloudflare自动部署 | deploy.yml与Git集成 | Actions凭据失败日志、Builds权限 | 未通过 | 需专用Token或Builds配置管理权限 |
+| 原指定image2.5图标 | 前轮既有Web/Android图标 | 前轮记录 | 未通过指定模型要求 | 本轮未重新生图，不能以已有图标证明指定模型 |
+
+### 修改文件与维护入口
+
+- Web交互：`web/public/{app.js,discovery.js,index.html,style.css,place-data.js,amap-guide.md,amap-guide.html}`。
+- 服务端：`web/src/{worker.js,places.js,reviews.js,reports.js,pagination.js,validation.js,password-auth.js}`；迁移 `web/migrations/0008_discovery_trust.sql`。
+- Android：`android/app/src/main/java/com/guet/foodshare/{MainActivity.kt,Discovery.kt}`、`android/app/src/main/AndroidManifest.xml`、`android/app/src/main/assets/amap-guide.html`。
+- 远程检查：`web/test/{optimization.test.mjs,schema.mjs,ui-ci.mjs,community.test.mjs,feedback.test.mjs,password.test.mjs,map-data.test.mjs,smoke.mjs}` 与 Web `check.yml/deploy.yml`。回归用完整真实迁移建立临时D1，不维护会遗漏新表的手写测试schema。
+- 说明：两仓库README、本文、`docs/{CREDENTIALS.md,DEPLOYMENT.md,PLACE-DATA.md,VERIFICATION.md}`、主仓库web子模块指针。此清单可配合Git提交差异定位全部变更。
+
+### 外部阻塞的处理步骤
+
+1. Web仓库 Settings → Secrets and variables → Actions 添加 `CLOUDFLARE_API_TOKEN` Secret，按 `CREDENTIALS.md` 收窄目标账户 Workers Scripts Edit、D1 Edit及域名所需权限；不要粘贴个人地图Key或本机OAuth。`CLOUDFLARE_ACCOUNT_ID` 已设置。
+2. Actions → Workers部署 → Run workflow，必须看到凭据、回归、迁移、部署全部成功。若保留Cloudflare Git入口，则管理员须使用Builds管理权限检查仓库/main/根目录/自动构建/App授权并触发首次部署；仅选一个自动入口。
+3. 用自己的高德Key在Web和Android真机读取一条经审核的真实地点，验证点位、评分、定位与分享；确认Android系统分享和链接打开选择。Key无需交给开发者。
+4. 真机复核Ark层级、间距、触控、焦点、滚动和完整状态；指定image2.5仍需可明确选择及确认该模型的渠道。未验证项目继续保持“待验证”，不随本轮CI成功自动改为通过。

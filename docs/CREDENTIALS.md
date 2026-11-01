@@ -10,7 +10,7 @@
 | 共享密码登录、提交美食 | PASSWORD_CREDENTIAL、DATA_ENCRYPTION_KEY | 用户注册 GitHub |
 | 图片/视频上传 | MEDIA_GITHUB_TOKEN | 用户的仓库写权限 |
 | 美食自动整理到审核 PR | DISPATCH_GITHUB_TOKEN、INTAKE_SECRET、Actions 临时 token | 普通用户的 GitHub Token |
-| 合并审核 PR 后公开 | PUBLISH_SECRET | 密码用户的审核/删除权限 |
+| 合并审核 PR 后公开 | PUBLISH_SECRET | 普通用户的审核权限 |
 | 密码用户自动反馈 | FEEDBACK_GITHUB_TOKEN | 用户自己的 GitHub 账号；Issue 由管理员账号代发 |
 | GitHub 用户自动反馈 | GitHub App Client ID/Secret 和用户授权 | 管理员代发；Issue 使用当前登录用户的账号 |
 | 地图、坐标转地址 | 三种高德 Key/安全码 | 用户的 GitHub 凭据 |
@@ -25,9 +25,9 @@
 
 Web 和 Android 共用 Worker 中的**同一个** PASSWORD_CREDENTIAL。管理员设置原密码，再私下发给需要参与的人。用户不需要注册 GitHub。
 
-允许：查看公开美食，上传图片/视频，提交美食，查看本浏览器/安装实例的投稿，定位填写，以及提交自动反馈。密码用户的反馈使用管理员账号，只能由服务端投递到固定的平台仓库。
+允许：查看公开美食，上传图片/视频，提交美食，查看及撤回本浏览器/安装实例拥有的投稿，评分及撤回自己的评价，提交纠错举报，定位填写，以及提交自动反馈。评价撤回不重置当日限额。密码用户的反馈使用管理员账号，只能由服务端投递到固定的平台仓库。
 
-不允许：修改或删除美食、图片、视频、反馈记录；审核或直接公开美食；访问管理员接口；取得任何 GitHub/Cloudflare 凭据。限制由服务端的接口允许列表执行，修改前端、伪造 role 字段或直接发送 DELETE/PUT/PATCH 也不能提升权限。
+不允许：修改或删除他人的美食和评价，任意删除媒体或反馈记录；审核或直接公开美食；访问管理员接口；取得任何 GitHub/Cloudflare 凭据。限制由服务端接口允许列表和所有权检查执行，伪造 role 字段或直接发送 DELETE/PUT/PATCH 不能提升权限。撤回不清除公开 Git 历史、第三方副本或保留防刷所需的最小记录。
 
 同一浏览器或 Android 安装实例有一个加密的匿名设备凭证，用于重新登录后找回自己的投稿。各人的身份不同；同一个共享密码不会让所有人看到彼此的待审稿。清除浏览器数据/卸载应用后会失去该设备身份，公开内容仍可查看。
 
@@ -229,7 +229,7 @@ SUBMISSION_BOT_TOKEN 是可选兼容项，默认不要创建。如果组织策�
 
 ## 10. Cloudflare：选择一种自动部署方式
 
-### 推荐：Workers Builds 绑定
+### 方式一：Workers Builds 绑定
 
 Cloudflare → Workers & Pages → guet-food-share → Settings → Builds → Connect repository。GitHub App 安装范围只选 **guet-food-share-web**，不要允许全部仓库。
 
@@ -246,9 +246,9 @@ Cloudflare 自动创建的 Build Token 可能附带本项目不用的 KV、R2 �
 
 仅通过 API 管理 Builds 触发器时，另需 Workers Builds Configuration Edit；查询 Worker tag 时需 Workers Scripts Read。该管理 Token 与构建部署 Token 是不同用途，不要放进应用 Worker。[Builds API 权限](https://developers.cloudflare.com/workers/ci-cd/builds/api-reference/)。
 
-### 可选：GitHub Actions 部署
+### 方式二：GitHub Actions 部署（当前建议）
 
-只在选择这条路线时，在 Web 仓库设置 DEPLOY_WITH_ACTIONS=true、CLOUDFLARE_ACCOUNT_ID 和 Secret CLOUDFLARE_API_TOKEN。Token 在 [Cloudflare API Tokens](https://dash.cloudflare.com/profile/api-tokens) → Create Custom Token 创建，权限和资源范围按上面的部署清单。不要使用 Global API Key；不要与 Workers Builds 同时自动部署。
+Web 仓库的 main 推送会触发 `.github/workflows/deploy.yml`，不再使用旧的 DEPLOY_WITH_ACTIONS 开关。设置 Variable CLOUDFLARE_ACCOUNT_ID 和 Secret CLOUDFLARE_API_TOKEN；缺少时任务明确失败，不会静默跳过。当前 Account ID 已配置，仍缺 Token；添加后在 Actions 手动重跑 Workers 部署。Token 在 [Cloudflare API Tokens](https://dash.cloudflare.com/profile/api-tokens) → Create Custom Token 创建，权限和资源范围按上面的部署清单。不要使用 Global API Key；选择这条入口后关闭 Workers Builds 自动部署，避免同一提交重复发布。
 
 ## 11. Android 签名与发布凭据
 
