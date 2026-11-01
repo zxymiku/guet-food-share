@@ -125,6 +125,7 @@
 - [自动部署 41321983371](https://github.com/zxymiku/guet-food-share-web/actions/runs/41321983371) **失败**：缺少 GitHub Secret `CLOUDFLARE_API_TOKEN`；Account ID变量已配置。Wrangler本机OAuth可部署但没有 Workers Builds Configuration 权限，Builds API 403，无法代查控制台的Git集成。手动部署成功不改变自动部署未通过的结论。
 - 首轮 Web CI 41321554412 因旧反馈测试未应用0008迁移失败；统一所有隔离数据库使用完整迁移序列后，41321663100 的全部业务回归通过，但固定 Playwright1.56.1不支持升级后的 ubuntu-latest26.04，界面依赖安装失败。固定兼容runner后上述最终检查通过。没有以删除断言或跳过失败项掩盖问题。
 - 最终Web提交 `e79e048` 的 [CI 41322922506](https://github.com/zxymiku/guet-food-share-web/actions/runs/41322922506) 再次成功；对应 [自动部署41322922385](https://github.com/zxymiku/guet-food-share-web/actions/runs/41322922385) 仍因缺同一部署Secret失败。生产 `/api/app-update` 已实读返回1.0.9、versionCode1009及与Release一致的SHA-256和大小。
+- 主仓库同步Web最终指针后的 `a30a63a` 由 [Android CI41323149750](https://github.com/zxymiku/guet-food-share/actions/runs/41323149750) 再次确认成功；之后仅补充此验证记录，Android源码未变。
 - 本地未执行 Gradle、npm test、构建测试、Wrangler dry-run、完整冒烟或本地浏览器运行。Wrangler发布会进行必要打包，按用户追加授权作为发布操作记录，不将其当作本地测试结论。
 
 ### 本轮验收表

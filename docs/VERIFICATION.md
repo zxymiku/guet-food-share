@@ -64,4 +64,5 @@ Web 反馈迁移和 Workers 部署已完成；线上 HTML 包含反馈表单，�
 - Cloudflare远程0008迁移和已授权Workers发布成功，版本 **2b0f73f2-16be-4aa2-8ffb-4d5493a93011**；业务代码Web f5fba58。后续e79e048仅部署工作流/说明修正。生产只读检查首页/分类/地点/教程200、未知地点404、匿名审核403，未写测试内容。
 - 自动部署 [41321983371](https://github.com/zxymiku/guet-food-share-web/actions/runs/41321983371) 凭据检查仍失败：缺CLOUDFLARE_API_TOKEN；Account ID已有。手动成功不等于自动恢复。
 - 最终Web提交e79e048的 [41322922506](https://github.com/zxymiku/guet-food-share-web/actions/runs/41322922506) 再次成功；[自动部署41322922385](https://github.com/zxymiku/guet-food-share-web/actions/runs/41322922385) 仍被同一Secret阻塞。生产更新接口已返回1.0.9/1009、正确大小和与Release一致的SHA-256。
+- 主仓库同步最终子模块指针后，a30a63a的 [Android CI41323149750](https://github.com/zxymiku/guet-food-share/actions/runs/41323149750) 再次成功；后续仅追加文档。
 - 本地没有编译/构建测试、npm test、dry-run、完整冒烟或运行浏览器。只有静态检查、读取远程日志/截图、经追加授权的远程迁移和发布必要打包。首轮失败均依远程日志修复后推送，详见产品优化记录。
