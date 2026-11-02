@@ -78,6 +78,7 @@ class MainActivity : Activity() {
     private var externalLocating=false
     private var developerMapKey:String?=null
     private var publicMapMode=false
+    private var activityResumed=false
     private lateinit var searchInput:EditText
     private lateinit var filterSummary:TextView
     private var sharedOpened=false
@@ -162,7 +163,13 @@ class MainActivity : Activity() {
     private fun activeMapKey():String?=if(prefs.getBoolean("map_use_public",false))developerMapKey else store.amapAndroidKey?:developerMapKey
     private fun loadPublicMapConfig(){
         executor.execute{try{val config=api.request("/api/config").optJSONObject("publicMap");val key=config?.optString("androidKey")
-            runOnUiThread{developerMapKey=key?.takeIf{(config?.optBoolean("androidReady")==true)&&it.matches(Regex("[a-fA-F0-9]{32}"))};if(mapView==null){if(prefs.getBoolean("map_consent",false)&&activeMapKey()!=null)initMap(null) else showMapEmpty()}}
+            runOnUiThread{
+                if(isDestroyed||isFinishing)return@runOnUiThread
+                val previous=developerMapKey
+                developerMapKey=key?.takeIf{(config?.optBoolean("androidReady")==true)&&it.matches(Regex("[a-fA-F0-9]{32}"))}
+                if(publicMapMode&&mapView!=null&&previous!=developerMapKey){mapView?.onPause();mapView?.onDestroy();mapView=null;amap=null}
+                if(mapView==null){if(prefs.getBoolean("map_consent",false)&&activeMapKey()!=null)initMap(null) else showMapEmpty()}
+            }
         }catch(_:Exception){/* External maps and local personal credentials remain available. */}}
     }
     private fun enablePublicMap(){
@@ -191,7 +198,7 @@ class MainActivity : Activity() {
         try {
         MapsInitializer.setApiKey(key)
         MapsInitializer.updatePrivacyShow(this,true,true); MapsInitializer.updatePrivacyAgree(this,true)
-        mapView = MapView(this).also { it.onCreate(bundle); mapHost.removeAllViews(); mapHost.addView(it) }
+        mapView = MapView(this).also { it.onCreate(bundle); mapHost.removeAllViews(); mapHost.addView(it);if(activityResumed)it.onResume() }
         amap = mapView!!.map.apply {
             moveCamera(CameraUpdateFactory.newLatLngZoom(LatLng(25.274215,110.299121),13f))
             setOnMapClickListener { point ->
@@ -559,8 +566,8 @@ class MainActivity : Activity() {
     override fun onRequestPermissionsResult(requestCode:Int,permissions:Array<out String>,grantResults:IntArray){super.onRequestPermissionsResult(requestCode,permissions,grantResults);if(requestCode==200){if(grantResults.any{it==PackageManager.PERMISSION_GRANTED})locate()else {externalLocating=false;browseLocating=false;locatingForForm=false;toast("未授予定位权限，仍可手动选点")}}}
     @Deprecated("Framework back navigation")
     override fun onBackPressed(){if(picking&&submitDialog!=null){picking=false;submitDialog?.show();mapStatus.text="高德地图 · 个人 API"}else super.onBackPressed()}
-    override fun onResume(){super.onResume();mapView?.onResume();if(::updater.isInitialized)updater.resumeInstall()}
-    override fun onPause(){mapView?.onPause();stopLocation();super.onPause()}
+    override fun onResume(){super.onResume();activityResumed=true;mapView?.onResume();if(::updater.isInitialized)updater.resumeInstall()}
+    override fun onPause(){activityResumed=false;mapView?.onPause();stopLocation();super.onPause()}
     override fun onSaveInstanceState(outState:Bundle){super.onSaveInstanceState(outState);mapView?.onSaveInstanceState(outState)}
     override fun onDestroy(){mainHandler.removeCallbacksAndMessages(null);stopLocation();mapView?.onDestroy();executor.shutdownNow();if(::updater.isInitialized)updater.close();if(::feedback.isInitialized)feedback.close();super.onDestroy()}
 }

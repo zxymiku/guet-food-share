@@ -16,7 +16,7 @@ object Navigation {
     fun home(activity:Activity,baidu:Boolean=false)=open(activity,Uri.parse(if(baidu)"https://map.baidu.com/" else "https://www.amap.com/"))
     fun compatibility(activity:Activity){AlertDialog.Builder(activity).setTitle("导航兼容性").setMessage("导航不需要个人 API。高德使用官方应用/网页路线入口，百度优先尝试已安装客户端，未安装则打开网页。浏览器、应用版本或权限可能拦截跳转，请核对起点和目的地。腾讯、苹果、Google等暂未保证直接导航，可复制店名和地址搜索。系统地图的定位权限由对应应用自行申请。").setPositiveButton("知道了",null).show()}
     fun choose(activity:Activity,p:JSONObject){
-        val loc=p.getJSONObject("location");val lng=loc.getDouble("lng");val lat=loc.getDouble("lat");val name=p.getString("name")
+        val loc=p.getJSONObject("location");val lng=loc.getDouble("lng");val lat=loc.getDouble("lat");val name=p.getString("name").replace('|',' ').replace(',',' ').trim()
         val destination="latlng:$lat,$lng|name:$name"
         val amap=url("https://uri.amap.com/navigation",mapOf("to" to "$lng,$lat,$name","mode" to "walk","coordinate" to "gaode","callnative" to "1","src" to "guet-food-share"))
         val baidu=url("https://api.map.baidu.com/direction",mapOf("origin" to "我的位置","destination" to destination,"mode" to "walking","coord_type" to "gcj02","output" to "html","src" to "andr.guet.foodshare"))
