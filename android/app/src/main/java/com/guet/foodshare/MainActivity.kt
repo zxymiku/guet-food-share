@@ -339,7 +339,7 @@ class MainActivity : Activity() {
                 browseOrigin?.let{facts.add("直线距离 %.1f km".format(Discovery.distance(it,p)))}
                 card.addView(text(facts.joinToString(" · ")))
                 if(p.optString("menuPrice").isNotBlank())card.addView(ArkUi.label(this,p.optString("menuPrice"),13f,ArkUi.muted).apply{maxLines=4;ellipsize=android.text.TextUtils.TruncateAt.END})
-                card.addView(button("查看这家 ↗"){dialog.dismiss();detail(p)})
+                card.addView(button("查看这家 ↗"){dialog.dismiss();detail(p)}.apply{contentDescription="查看这家："+p.getString("name")})
                 cards.addView(card);cards.addView(ArkUi.rule(this,true))
             }
             reroll.apply{isEnabled=result.total>3;text=if(result.total<=3)"已展示全部候选" else if(result.remaining>0)"换一组" else "开始新一轮"}
