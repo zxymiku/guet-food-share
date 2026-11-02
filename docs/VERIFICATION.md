@@ -66,3 +66,13 @@ Web 反馈迁移和 Workers 部署已完成；线上 HTML 包含反馈表单，�
 - 最终Web提交e79e048的 [41322922506](https://github.com/zxymiku/guet-food-share-web/actions/runs/41322922506) 再次成功；[自动部署41322922385](https://github.com/zxymiku/guet-food-share-web/actions/runs/41322922385) 仍被同一Secret阻塞。生产更新接口已返回1.0.9/1009、正确大小和与Release一致的SHA-256。
 - 主仓库同步最终子模块指针后，a30a63a的 [Android CI41323149750](https://github.com/zxymiku/guet-food-share/actions/runs/41323149750) 再次成功；后续仅追加文档。
 - 本地没有编译/构建测试、npm test、dry-run、完整冒烟或运行浏览器。只有静态检查、读取远程日志/截图、经追加授权的远程迁移和发布必要打包。首轮失败均依远程日志修复后推送，详见产品优化记录。
+
+## 2026-11-02 找店与吃什么决策
+
+完整范围、变更文件、边界和验收表见 [本轮决策记录](2026-11-02-DECISION.md)。
+
+- Web c4a29a6：[CI41389525398](https://github.com/zxymiku/guet-food-share-web/actions/runs/41389525398) 成功，29项回归、打包、桌面/手机重点交互和6张远程截图。已静态查看最终对比面板；一键选择只从当前组抽取、主按钮在手机可视区。
+- Android/主仓库40b27fc：[CI41389530372](https://github.com/zxymiku/guet-food-share/actions/runs/41389530372) 成功；[正式签名41389665917](https://github.com/zxymiku/guet-food-share/actions/runs/41389665917) 发布1.0.10/1010成功。生产更新接口返回对应大小和匹配的SHA-256。
+- 远程迁移无待应用项，已授权Workers发布成功，版本 **8e1a34f9-e007-4564-abd5-72f6665720bb**。生产首页、新decision.js、公开地点、更新接口均200；没有向生产写测试数据，公开地点仍为空。
+- [自动部署41389525381](https://github.com/zxymiku/guet-food-share-web/actions/runs/41389525381) 仍因缺CLOUDFLARE_API_TOKEN失败，已另查Secret确实不存在；Account ID已有。操作步骤见本轮记录。
+- 本地未执行编译/构建测试、npm test、dry-run、完整冒烟或运行浏览器。只做静态检查、下载查看远程截图与按此前授权执行发布打包。真实高德及Android真机验收仍待完成。
