@@ -70,4 +70,36 @@ Web：`src/public-map.js`、`worker.js`、`migrations/0009_public_map_usage.sql`
 
 Android：`Navigation.kt`、`MainActivity.kt`、`MapSettingsActivity.kt`、内置教程HTML。文档：本文件、CREDENTIALS、README及最终验证记录。
 
-本地只做语法、文本、配置/HTML/XML和差异静态检查，不执行本地编译、构建测试或完整冒烟。测试、打包和Android编译均在GitHub Actions；通过后按此前授权执行远程迁移及Workers发布。远程结果和逐项验收在完成后追加；真实公共Key未提供时明确标注未配置，不虚报已启用。
+本地只做语法、文本、配置/HTML/XML和差异静态检查，不执行本地编译、构建测试或完整冒烟。测试、打包和Android编译均在GitHub Actions；通过后按此前授权执行远程迁移及Workers发布。真实公共Key未提供时明确标注未配置，不虚报已启用。
+
+## 最终远程结果
+
+- 最终业务代码：Web **f4e4a54**、主仓库/Android **f103f53**。之后仅补验收文档。
+- [Web CI41392827537](https://github.com/zxymiku/guet-food-share-web/actions/runs/41392827537) **成功**：32项回归（前轮29项加3项公共地图/导航边界）、Worker打包、桌面1440×1000与手机390×844重点交互通过。公共地图使用明确的隔离SDK替身，验证匿名不填个人Key、公共serviceHost配置、外部定位链接、公共模式不进入投稿选点；不代表真实高德认证。最终8张远程截图已下载静态审查，设置页普通查看前置、个人API默认折叠。
+- [Android CI41392833950](https://github.com/zxymiku/guet-food-share/actions/runs/41392833950) **成功**；[签名发布41392992015](https://github.com/zxymiku/guet-food-share/actions/runs/41392992015) **成功**，发布 [Android1.0.11](https://github.com/zxymiku/guet-food-share/releases/tag/android-v1.0.11)，versionCode1011，沿用既有签名。大小19,852,522字节，SHA-256 **086a50df5a763e94e24017440322fe0734afdf0c627d9598734a827c1b6c8ba3**。
+- Cloudflare远程D1成功应用 **0009_public_map_usage.sql**，然后经授权执行Workers发布成功，版本 **a6d21cd5-b007-411c-9931-9c7fa9a30245**。没有向生产写入测试地点、定位或评价。
+- 生产只读检测：首页200且含无需Key入口与高级折叠区；navigation.js为200且包含GCJ-02/WGS84明确处理；申请教程200且有普通查看章节；`/api/app-update` 为200、1.0.11/1011、大小和SHA-256均与Release一致。
+- 生产 `/api/config` 实读 **webReady=false、androidReady=false**，模式为optional-personal；`/_AMapService/v3/ias` 返回410并提示外部地图。**公共内嵌底图当前未启用**，还需账号持有人申请项目Key并配置本文件列出的AMAP_PUBLIC_*。外部地图/定位/导航入口已部署；不能把未启用的真实底图写成已通过认证。
+- [自动部署41392827525](https://github.com/zxymiku/guet-food-share-web/actions/runs/41392827525) 仍在凭据检查阶段失败，Web仓库Secret `CLOUDFLARE_API_TOKEN` 仍不存在；本机发布成功不等于自动部署恢复。
+- 首轮Web41392284556和Android41392289788均成功；之后根据真实截图将普通查看前置，再补原生异步地图生命周期、刷新后的公共Key轮换/停用处理及导航标签分隔符防注入。最终检查全部成功，没有本地编译或删除失败断言。
+- 本地未执行Gradle、npm test、构建测试、Wrangler dry-run、完整冒烟或浏览器运行。只做静态检查、下载查看远程截图、读取线上部署响应及经授权的远程迁移/发布必要打包。
+
+## 本轮验收表
+
+| 需求 | 实现位置 | 验证方式 | 结果与边界 |
+|---|---|---|---|
+| 普通查看不用申请个人API | 双端地图设置、外部位置入口 | Web匿名/无个人Key重点交互，Android编译 | 通过实现/CI；原生真实定位待验证 |
+| 开发者公共Web底图 | public-map.js、serviceHost、API配置 | 隔离SDK与D1回归 | 实现通过；生产未启用，待项目Key |
+| 开发者公共Android底图 | activeMapKey/initMap、配置读取 | Android编译/签名 | 实现通过；待绑定正式SHA-1的Key与真机 |
+| 公共Key与个人Key严格分开 | AMAP_PUBLIC_*、本机SecureStore/凭据模块 | 配置/个人Key拒绝/安全密钥不泄漏回归 | 通过；公共应用标识按需公开，安全密钥只在服务器 |
+| 公共模式仅浏览 | 双端地图点击/投稿辅助入口 | Web公共选点阻止；原生静态和编译 | 通过实现检查；不是平台严格只读Key保证 |
+| 底图代理收窄、防刷和额度 | 0009、固定上游/路径、D1原子计数 | 越权路径/Key/来源、同IP小时及全站日限额回归 | 通过；只覆盖本站代理，不覆盖所有SDK直连调用 |
+| 定位与目的地坐标系 | navigation.js、Navigation.kt | GCJ-02/WGS84/经纬顺序/标签分隔符回归 | Web逻辑通过，原生编译通过；定位精度待设备实测 |
+| 高德导航 | 官方URI应用/网页入口 | URL与编码回归、Android编译 | 通过接入；真实客户端唤起待验证 |
+| 百度导航 | 官方URI、Androidscheme及网页降级 | URL与坐标回归、Android编译 | 通过接入；真实客户端唤起待验证 |
+| 其他导航无法保证时说明 | 设置/详情兼容性、复制地址 | 静态文案、Web详情交互 | 通过；腾讯/苹果/Google不冒称直接支持 |
+| 教程与设置降低门槛 | MD/HTML/Android离线教程，高级折叠 | Web iframe、静态内容一致、8张截图 | 通过；原生设置视觉真机待测 |
+| 推送、远程验证及发布 | 两仓库CI、Worker版本、正式APK | 上述日志/Release/生产响应 | 通过已执行范围；没有本地编译测试 |
+| Cloudflare自动部署 | deploy.yml与GitHub Secret | 最新失败步骤、Secret名称查询 | 未通过；仍需专用部署Token |
+
+下一步仅有两类外部操作：若需要站内公共底图，账号持有人按前文一次性配置独立的项目Web/Android Key并启用，再做真实两端联调；若希望GitHub推送自动发布，则另在Web仓库补齐CLOUDFLARE_API_TOKEN并重跑部署。这两类凭据用途不同，均不需要普通访问者申请或上交个人地图Key。

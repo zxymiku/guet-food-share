@@ -76,3 +76,13 @@ Web 反馈迁移和 Workers 部署已完成；线上 HTML 包含反馈表单，�
 - 远程迁移无待应用项，已授权Workers发布成功，版本 **8e1a34f9-e007-4564-abd5-72f6665720bb**。生产首页、新decision.js、公开地点、更新接口均200；没有向生产写测试数据，公开地点仍为空。
 - [自动部署41389525381](https://github.com/zxymiku/guet-food-share-web/actions/runs/41389525381) 仍因缺CLOUDFLARE_API_TOKEN失败，已另查Secret确实不存在；Account ID已有。操作步骤见本轮记录。
 - 本地未执行编译/构建测试、npm test、dry-run、完整冒烟或运行浏览器。只做静态检查、下载查看远程截图与按此前授权执行发布打包。真实高德及Android真机验收仍待完成。
+
+## 2026-11-02 普通地图查看与多导航入口
+
+当前地图行为以 [公共地图说明与逐项验收](PUBLIC-MAPS-2026-11.md) 为准：普通用户不用个人Key，内嵌公共底图由开发者配置，个人模式为高级可选。
+
+- Web f4e4a54的 [CI41392827537](https://github.com/zxymiku/guet-food-share-web/actions/runs/41392827537) 成功，32项回归、Worker打包、桌面/手机重点交互及8张截图；公共SDK为隔离替身，不能代替真实认证。
+- 主仓库/Android f103f53的 [CI41392833950](https://github.com/zxymiku/guet-food-share/actions/runs/41392833950) 和 [签名发布41392992015](https://github.com/zxymiku/guet-food-share/actions/runs/41392992015) 成功；正式Android1.0.11/1011已发布，生产更新接口返回一致的版本、大小和SHA-256。
+- 远程0009迁移、已授权Workers发布成功，版本 **a6d21cd5-b007-411c-9931-9c7fa9a30245**。首页、新navigation.js和教程均200；公共底图实际webReady/androidReady均false，代理410提示未配置，不能声称已用真实项目Key启用。外部地图入口已部署；没有写入生产定位或测试地点。
+- [自动部署41392827525](https://github.com/zxymiku/guet-food-share-web/actions/runs/41392827525) 凭据检查仍失败，CLOUDFLARE_API_TOKEN仍缺。地图项目Key与Cloudflare部署Token是独立配置，步骤见本轮说明。
+- 本地仍未执行编译/构建测试、npm test、dry-run、完整冒烟或浏览器运行。普通设备定位、真实高德公共认证及导航客户端唤起尚待真机验证。
