@@ -321,12 +321,14 @@ class MainActivity : Activity() {
         val scope=text("当前范围："+discoverySummary(),13f);box.addView(scope)
         val unvisited=CheckBox(this).apply{text="这次避开本机标记“吃过”的店";isChecked=decisionUnvisited;setTextColor(ArkUi.paper);minHeight=dp(48)};box.addView(unvisited)
         val status=text("");status.accessibilityLiveRegion=View.ACCESSIBILITY_LIVE_REGION_POLITE;box.addView(status)
+        val reroll=button("换一组"){};box.addView(reroll)
+        var currentChoices=emptyList<JSONObject>()
         val cards=ArkUi.column(this);box.addView(cards)
         box.addView(text("随机抽选，不是推荐排名。同一轮看完前不重复；价格、距离与评价仅供比较，不代表实时营业。",13f))
-        val dialog=AlertDialog.Builder(this).setTitle("今天吃什么").setView(ScrollView(this).apply{addView(box)}).setNegativeButton("关闭",null).setNeutralButton("调整筛选"){_,_->discoveryFilters()}.setPositiveButton("换一组",null).show()
+        val dialog=AlertDialog.Builder(this).setTitle("今天吃什么").setView(ScrollView(this).apply{addView(box)}).setNegativeButton("关闭",null).setNeutralButton("调整筛选"){_,_->discoveryFilters()}.setPositiveButton("从本组选一家",null).show()
         fun draw(){
             val pool=visiblePlaces().filter{!decisionUnvisited||discovery.mark(it.getString("id")).optString("visit")!="visited"}
-            val result=decisionDeck.draw(pool);cards.removeAllViews()
+            val result=decisionDeck.draw(pool);currentChoices=result.places;cards.removeAllViews()
             status.text=if(result.total==0)"当前条件没有候选，可调整筛选或取消“避开吃过”。" else "${result.total} 家可选 · 本轮待看 ${result.remaining} 家"
             for(p in result.places){
                 val card=ArkUi.column(this,12);card.background=ArkUi.surface(ArkUi.ink)
@@ -337,13 +339,15 @@ class MainActivity : Activity() {
                 browseOrigin?.let{facts.add("直线距离 %.1f km".format(Discovery.distance(it,p)))}
                 card.addView(text(facts.joinToString(" · ")))
                 if(p.optString("menuPrice").isNotBlank())card.addView(ArkUi.label(this,p.optString("menuPrice"),13f,ArkUi.muted).apply{maxLines=4;ellipsize=android.text.TextUtils.TruncateAt.END})
-                card.addView(ArkUi.button(this,"就看这家 ↗",true){dialog.dismiss();detail(p)})
+                card.addView(button("查看这家 ↗"){dialog.dismiss();detail(p)})
                 cards.addView(card);cards.addView(ArkUi.rule(this,true))
             }
-            dialog.getButton(AlertDialog.BUTTON_POSITIVE).apply{isEnabled=result.total>3;text=if(result.total<=3)"已展示全部候选" else if(result.remaining>0)"换一组" else "开始新一轮"}
+            reroll.apply{isEnabled=result.total>3;text=if(result.total<=3)"已展示全部候选" else if(result.remaining>0)"换一组" else "开始新一轮"}
+            dialog.getButton(AlertDialog.BUTTON_POSITIVE).isEnabled=currentChoices.isNotEmpty()
         }
         unvisited.setOnCheckedChangeListener{_,checked->decisionUnvisited=checked;draw()}
-        dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener{draw()};draw()
+        reroll.setOnClickListener{draw()}
+        dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener{if(currentChoices.isNotEmpty()){val choice=currentChoices.random();dialog.dismiss();detail(choice)}};draw()
     }
     private fun placeTools(p:JSONObject,content:LinearLayout){
         val id=p.getString("id");val saved=button(if(discovery.mark(id).optBoolean("favorite"))"取消收藏" else "收藏到本机"){};saved.setOnClickListener{runCatching{val value=!discovery.mark(id).optBoolean("favorite");discovery.update(id,favorite=value);saved.text=if(value)"取消收藏" else "收藏到本机";renderPlaces()}.onFailure{toast(it.message?:"保存失败")}};content.addView(saved)
