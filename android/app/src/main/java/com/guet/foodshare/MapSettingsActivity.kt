@@ -26,9 +26,17 @@ class MapSettingsActivity:Activity(){
         val box=ArkUi.column(this,20)
         box.setOnApplyWindowInsetsListener{v,i->v.setPadding(ArkUi.dp(this,20),ArkUi.dp(this,20)+i.systemWindowInsetTop,ArkUi.dp(this,20),ArkUi.dp(this,20)+i.systemWindowInsetBottom);i}
         box.addView(ArkUi.button(this,"← 返回地图"){finish()})
-        box.addView(ArkUi.section(this,"PERSONAL MAP / 设置","地图由你掌握","使用自己的 API，读取大家共享的地点。"))
-        box.addView(ArkUi.label(this,"高德个人 API 大量使用、超出免费额度或使用收费服务时需要缴费，具体以高德当前规则为准。因此请自行申请 API，并查看用量。"))
+        box.addView(ArkUi.section(this,"MAP / 地图与导航","普通查看，无需个人 API","开发者公共底图和外部导航，个人 API 保留为高级选项。"))
+        box.addView(ArkUi.label(this,"公共底图由开发者管理额度与费用，用户无需申请。个人 API 是自管额度及投稿辅助功能的可选项，大量使用可能需付费。"))
         box.addView(ArkUi.label(this,"个人 API 不会上传到本项目服务器、GitHub、投稿或导出文件；地图认证与地址解析会直接发送给高德。本机使用 Android 系统密钥库加密保存。项目代码已经开源，欢迎审查。",14f,ArkUi.muted))
+        box.addView(ArkUi.button(this,"在外部地图查看我的位置",true){setResult(RESULT_OK,Intent().putExtra("externalPosition",true));finish()})
+        box.addView(ArkUi.button(this,"直接打开高德地图"){Navigation.home(this)})
+        box.addView(ArkUi.button(this,"直接打开百度地图"){Navigation.home(this,true)})
+        box.addView(ArkUi.button(this,"导航兼容性与其他地图"){Navigation.compatibility(this)})
+        box.addView(ArkUi.button(this,"启用开发者公共底图（不填个人 Key）"){
+            AlertDialog.Builder(this).setTitle("启用公共底图？").setMessage("开发者配置完成后即可浏览。启用会连接高德地图 SDK，定位需另行授权；请阅读下方高德隐私政策。若公共底图尚未配置，仍可用外部地图。").setNegativeButton("取消",null).setPositiveButton("同意并启用"){_,_->getSharedPreferences("settings",MODE_PRIVATE).edit().putBoolean("map_consent",true).putBoolean("map_use_public",true).apply();setResult(RESULT_OK);finish()}.show()
+        })
+        box.addView(ArkUi.kicker(this,"PERSONAL API / 高级选项，可不填写"))
         box.addView(ArkUi.button(this,"01 / 阅读完整申请教程（离线可用）"){showGuide()})
         box.addView(ArkUi.kicker(this,"02 / 申请 ANDROID KEY"))
         box.addView(ArkUi.label(this,"以下信息来自当前安装版本。复制到高德控制台，避免混用正式版与调试版签名。"))
@@ -50,10 +58,10 @@ class MapSettingsActivity:Activity(){
             if(!key.matches(Regex("[0-9a-fA-F]{32}")) || (rest.isNotEmpty()&&!rest.matches(Regex("[0-9a-fA-F]{32}")))){error.text="Key 应为 32 位字母数字（十六进制），请检查平台类型与完整性。";return@button}
             if(!consent.isChecked){error.text="请先阅读并同意地图服务说明。";return@button}
             try{store.amapAndroidKey=key;store.amapRestKey=rest.ifBlank{null}}catch(_:Exception){error.text="本机加密保存失败，请检查系统安全设置后重试。";return@button}
-            getSharedPreferences("settings",MODE_PRIVATE).edit().putBoolean("map_consent",true).apply();setResult(RESULT_OK);finish()
+            getSharedPreferences("settings",MODE_PRIVATE).edit().putBoolean("map_consent",true).putBoolean("map_use_public",false).apply();setResult(RESULT_OK);finish()
         })
         box.addView(ArkUi.button(this,"清除本机 API 并关闭地图"){
-            AlertDialog.Builder(this).setTitle("清除本机地图凭据？").setMessage("公开地点和登录状态不受影响。再次显示地图需重新填写 Key。").setNegativeButton("取消",null).setPositiveButton("清除"){_,_->store.amapAndroidKey=null;store.amapRestKey=null;getSharedPreferences("settings",MODE_PRIVATE).edit().putBoolean("map_consent",false).apply();setResult(RESULT_OK);finish()}.show()
+            AlertDialog.Builder(this).setTitle("清除本机地图凭据？").setMessage("清除个人凭据并关闭嵌入地图；公开地点和登录状态不受影响，仍可直接使用外部地图。").setNegativeButton("取消",null).setPositiveButton("清除"){_,_->store.amapAndroidKey=null;store.amapRestKey=null;getSharedPreferences("settings",MODE_PRIVATE).edit().putBoolean("map_consent",false).putBoolean("map_use_public",false).apply();setResult(RESULT_OK);finish()}.show()
         })
         box.addView(ArkUi.kicker(this,"OPEN SOURCE / 可审查"))
         box.addView(ArkUi.button(this,"查看项目源代码 ↗"){open("https://github.com/zxymiku/guet-food-share")})

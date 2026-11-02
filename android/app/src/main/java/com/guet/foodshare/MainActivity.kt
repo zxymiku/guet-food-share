@@ -75,6 +75,9 @@ class MainActivity : Activity() {
     private var sortOrder="最新公开"
     private var browseOrigin:LatLng?=null
     private var browseLocating=false
+    private var externalLocating=false
+    private var developerMapKey:String?=null
+    private var publicMapMode=false
     private lateinit var searchInput:EditText
     private lateinit var filterSummary:TextView
     private var sharedOpened=false
@@ -121,8 +124,8 @@ class MainActivity : Activity() {
         mapStatus=ArkUi.label(this,"地图未启用 · 公开地点可正常浏览",13f,ArkUi.muted).apply{accessibilityLiveRegion=View.ACCESSIBILITY_LIVE_REGION_POLITE};stage.addView(mapStatus)
         mapHost=FrameLayout(this);stage.addView(mapHost,LinearLayout.LayoutParams(-1,0,1f))
         val mapActions=LinearLayout(this)
-        mapActions.addView(button("◎ 定位填写"){browseLocating=false;locatingForForm=false;locate()},LinearLayout.LayoutParams(0,-2,1f))
-        mapActions.addView(button("＋ 选点投稿"){if(amap==null)settings() else {share();if(submitDialog!=null){picking=true;submitDialog?.hide();mapStatus.text="请点击实际门店位置 · 返回表单核对"}}},LinearLayout.LayoutParams(0,-2,1f))
+        mapActions.addView(button("◎ 我的位置"){if(amap==null)locateExternal() else locateForBrowsing()},LinearLayout.LayoutParams(0,-2,1f))
+        mapActions.addView(button("＋ 选点投稿"){if(publicMapMode){toast("公共底图仅浏览；投稿可手填坐标或切换个人 API");return@button};if(amap==null)settings() else {share();if(submitDialog!=null){picking=true;submitDialog?.hide();mapStatus.text="请点击实际门店位置 · 返回表单核对"}}},LinearLayout.LayoutParams(0,-2,1f))
         stage.addView(mapActions)
         directory=ArkUi.column(this,12);body.addView(directory,if(wide)LinearLayout.LayoutParams(0,-1,1f) else LinearLayout.LayoutParams(-1,0,1f))
         searchInput=ArkUi.field(this,"搜索店名、地址、菜品或标签").apply{contentDescription="搜索公开地点";addTextChangedListener(object:android.text.TextWatcher{
@@ -141,7 +144,7 @@ class MainActivity : Activity() {
         exploreButton=button("探索地图"){setMode("map")};directoryButton=button("找店 / 清单"){setMode("list")}
         dock.addView(exploreButton,LinearLayout.LayoutParams(0,-2,1f));dock.addView(directoryButton,LinearLayout.LayoutParams(0,-2,1f));dock.addView(ArkUi.button(this,"＋ 分享",true){share()},LinearLayout.LayoutParams(0,-2,1f));root.addView(ArkUi.rule(this));root.addView(dock)
         showMapEmpty();setMode("list")
-        if(prefs.getBoolean("map_consent",false)&&!store.amapAndroidKey.isNullOrBlank())initMap(savedInstanceState)
+        if(prefs.getBoolean("map_consent",false)&&!activeMapKey().isNullOrBlank())initMap(savedInstanceState)
         runCatching{val cache=java.io.File(filesDir,"public-places-cache.json");if(cache.exists()){val rows=JSONArray(cache.readText());places=(0 until rows.length()).map{rows.getJSONObject(it)};renderPlaces();countLabel.text="上次同步的地点 · 正在联网刷新"}}
         refresh();handleLogin(intent);updater.check();ArkUi.reveal(body)
         if(!prefs.getBoolean("guide_v1",false))guide()
@@ -156,20 +159,34 @@ class MainActivity : Activity() {
     private fun menu(){
         AlertDialog.Builder(this).setTitle("桂电美食分享").setItems(arrayOf(loginButton.text.toString(),"我的投稿","刷新公开地点","导出全部公开地点","意见反馈","设置与 API 教程","使用指引","我的清单与筛选","清除本机收藏与足迹","内容审核（审核员）","清除公开地点缓存")){_,which->when(which){0->login();1->mine();2->refresh();3->exportPlaces();4->feedback.show();5->settings();6->guide();7->discoveryFilters();8->AlertDialog.Builder(this).setMessage("清除本机收藏和足迹？Key 与公开内容不受影响。").setNegativeButton("取消",null).setPositiveButton("清除"){_,_->runCatching{discovery.clear();renderPlaces()}.onFailure{toast(it.message?:"失败")}}.show();9->moderationQueue();10->{val file=java.io.File(filesDir,"public-places-cache.json");if(!file.exists()||file.delete())toast("已清除公开地点缓存")else toast("清除失败")}}}.setNegativeButton("返回",null).show()
     }
+    private fun activeMapKey():String?=if(prefs.getBoolean("map_use_public",false))developerMapKey else store.amapAndroidKey?:developerMapKey
+    private fun loadPublicMapConfig(){
+        executor.execute{try{val config=api.request("/api/config").optJSONObject("publicMap");val key=config?.optString("androidKey")
+            runOnUiThread{developerMapKey=key?.takeIf{(config?.optBoolean("androidReady")==true)&&it.matches(Regex("[a-fA-F0-9]{32}"))};if(mapView==null){if(prefs.getBoolean("map_consent",false)&&activeMapKey()!=null)initMap(null) else showMapEmpty()}}
+        }catch(_:Exception){/* External maps and local personal credentials remain available. */}}
+    }
+    private fun enablePublicMap(){
+        if(developerMapKey==null){toast("开发者尚未配置公共底图，可直接使用外部地图");return}
+        AlertDialog.Builder(this).setTitle("启用开发者公共底图？").setMessage("无需填写个人 Key。启用后会连接高德地图SDK；定位需另行授权，项目不保存浏览定位。请阅读高德隐私政策；公共底图只用于浏览。").setNeutralButton("隐私政策"){_,_->open("https://lbs.amap.com/pages/privacy/")}.setNegativeButton("取消",null).setPositiveButton("同意并启用"){_,_->prefs.edit().putBoolean("map_consent",true).putBoolean("map_use_public",true).apply();mapView?.onPause();mapView?.onDestroy();mapView=null;amap=null;initMap(null)}.show()
+    }
     private fun showMapEmpty(){
         mapHost.removeAllViews();mapHost.addView(AtlasStage(this),FrameLayout.LayoutParams(-1,-1))
-        val content=ArkUi.column(this,24)
-        content.addView(ArkUi.kicker(this,"地图 / 等待你的 API"))
-        content.addView(text("把好吃的，\n留在地图上。",30f).apply{typeface=Typeface.DEFAULT_BOLD})
-        content.addView(ArkUi.label(this,"自己的地图 API，大家的美食档案。",14f,ArkUi.muted))
-        content.addView(ArkUi.button(this,"申请并填写高德 API →",true){settings()})
-        content.addView(ArkUi.label(this,"未配置地图时，仍可浏览地点档案。",13f,ArkUi.muted))
+        val content=ArkUi.column(this,20)
+        content.addView(ArkUi.kicker(this,"地图 / 无需个人 API"))
+        content.addView(text("直接看地图，\n再决定怎么去。",26f).apply{typeface=Typeface.DEFAULT_BOLD})
+        content.addView(ArkUi.label(this,if(developerMapKey!=null)"公共底图已就绪，点击同意后即可浏览。" else "公共底图暂未配置，外部地图可立即使用。",14f,ArkUi.muted))
+        if(developerMapKey!=null)content.addView(ArkUi.button(this,"启用开发者公共底图",true){enablePublicMap()})
+        content.addView(button("在外部地图查看我的位置"){locateExternal()})
+        content.addView(button("打开高德地图"){Navigation.home(this)})
+        content.addView(button("打开百度地图"){Navigation.home(this,true)})
+        content.addView(button("地图设置 / 高级个人 API"){settings()})
         mapHost.addView(ScrollView(this).apply{isFillViewport=true;addView(content)},FrameLayout.LayoutParams(-1,-1))
-        mapStatus.text="地图未启用 · 个人 API 仅保存在本机"
+        mapStatus.text="无需个人 API · 外部地图也可查看位置和导航"
     }
     private fun initMap(bundle: Bundle?) {
         if (mapView != null) return
-        val key=store.amapAndroidKey
+        val key=activeMapKey()
+        publicMapMode=prefs.getBoolean("map_use_public",false)||store.amapAndroidKey.isNullOrBlank()
         if(key.isNullOrBlank()){showMapEmpty();return}
         try {
         MapsInitializer.setApiKey(key)
@@ -178,6 +195,7 @@ class MainActivity : Activity() {
         amap = mapView!!.map.apply {
             moveCamera(CameraUpdateFactory.newLatLngZoom(LatLng(25.274215,110.299121),13f))
             setOnMapClickListener { point ->
+                if(!picking||publicMapMode)return@setOnMapClickListener
                 selected = point;autoAddress=null;nearbyName=null; selectedMarker?.remove(); selectedMarker = addMarker(MarkerOptions().position(point).title("待投稿门店位置"))
                 if (picking) { picking = false;mapStatus.text="已选择门店 · 请核对后提交"; resolveAddress(point); lngInput?.setText("%.6f".format(java.util.Locale.US,point.longitude)); latInput?.setText("%.6f".format(java.util.Locale.US,point.latitude)); submitDialog?.show() }
                 else toast("已选点，点击“分享”填写门店信息")
@@ -186,9 +204,9 @@ class MainActivity : Activity() {
         }
         amap?.uiSettings?.isZoomControlsEnabled=false
         amap?.uiSettings?.isScaleControlsEnabled=true
-        mapStatus.text="个人 API · 正在连接高德"
+        mapStatus.text=(if(publicMapMode)"开发者公共底图" else "个人 API")+" · 正在连接高德"
         var loaded=false
-        amap?.setOnMapLoadedListener{loaded=true;mapStatus.text="高德地图 · GCJ-02 · 个人 API"}
+        amap?.setOnMapLoadedListener{loaded=true;mapStatus.text="高德地图 · GCJ-02 · "+(if(publicMapMode)"公共浏览" else "个人 API")}
         val currentMap=mapView
         mainHandler.postDelayed({if(!loaded&&mapView===currentMap&&!isDestroyed)mapStatus.text="地图未就绪 · 检查网络或地图 API 设置"},20000)
         markerSignature="";renderPlaces()
@@ -204,7 +222,7 @@ class MainActivity : Activity() {
         return result.values.toList()
     }
     private fun refresh(){
-        if(fetchInProgress)return;fetchInProgress=true;countLabel.text="公开地点 · 正在读取"
+        if(fetchInProgress)return;fetchInProgress=true;loadPublicMapConfig();countLabel.text="公开地点 · 正在读取"
         executor.execute{try{val config=runCatching{api.request("/api/categories")}.getOrNull();val data=readPlaces();runCatching{java.io.File(filesDir,"public-places-cache.json").writeText(JSONArray(data).toString())};runOnUiThread{if(config!=null)applyCategoryConfig(config);places=data;fetchInProgress=false;renderPlaces();openSharedPlace()}}
         catch(e:Exception){runOnUiThread{fetchInProgress=false;countLabel.text=if(places.isEmpty())"读取失败 · 更多 → 刷新公开地点" else "离线 / 同步失败 · ${places.size} 条上次记录，可能过期";toast(e.message?:"读取失败")}}}
     }
@@ -252,9 +270,8 @@ class MainActivity : Activity() {
         for (i in 0 until images.length()) { val image = ImageView(this).apply { contentDescription = "门店照片"; adjustViewBounds = true }; content.addView(image,LinearLayout.LayoutParams(-1,dp(190))); async { val bytes = api.photo(images.getString(i)); val bitmap = BitmapFactory.decodeByteArray(bytes,0,bytes.size); runOnUiThread { image.setImageBitmap(bitmap) } } }
         val clips=p.optJSONArray("videos")?:JSONArray()
         for(i in 0 until clips.length()){content.addView(button("▶ 播放美食视频 ${i+1}"){val video=VideoView(this);val controller=MediaController(this);controller.setAnchorView(video);video.setMediaController(controller);video.setVideoURI(Uri.parse(BuildConfig.API_BASE_URL+clips.getString(i)),mapOf("Authorization" to "Bearer ${store.token.orEmpty()}"));AlertDialog.Builder(this).setView(video).setPositiveButton("关闭"){_,_->video.stopPlayback()}.setOnDismissListener{video.stopPlayback()}.show();video.setOnPreparedListener{video.start()}})}
-        AlertDialog.Builder(this).setView(ScrollView(this).apply { addView(content) }).setNegativeButton("关闭",null).setPositiveButton("高德导航") { _, _ ->
-            val loc = p.getJSONObject("location"); open("https://uri.amap.com/navigation?to=${loc.getDouble("lng")},${loc.getDouble("lat")},${Uri.encode(p.getString("name"))}&mode=walk&coordinate=gaode&callnative=1")
-        }.show()
+        content.addView(button("导航兼容性与其他地图"){Navigation.compatibility(this)})
+        AlertDialog.Builder(this).setView(ScrollView(this).apply { addView(content) }).setNegativeButton("关闭",null).setPositiveButton("导航 / 选择地图") { _, _ -> Navigation.choose(this,p) }.show()
     }
     private fun visiblePlaces():List<JSONObject>{
         val filtered=places.filter{p->
@@ -285,8 +302,10 @@ class MainActivity : Activity() {
         categoryFilter="全部";sortOrder="最新公开";searchQuery="";searchInput.setText("")
         renderCategoryChips();renderPlaces()
     }
+    private fun locateExternal(){externalLocating=true;browseLocating=false;locatingForForm=false;locate()}
     private fun locateForBrowsing(){
-        if(amap==null){toast("附近范围需要先设置个人地图 API；其他筛选仍可使用");settings();return}
+        externalLocating=false
+        if(amap==null){toast("可启用公共底图或直接用外部地图定位");setMode("map");return}
         browseLocating=true;locate()
     }
     private fun discoveryFilters(){
@@ -374,7 +393,7 @@ class MainActivity : Activity() {
     }
     private fun guide(){
         val box=ArkUi.column(this,20);box.addView(ArkUi.section(this,"START / 使用指引","自己的地图，大家的美食","指引可跳过，更多菜单可随时重开"))
-        listOf("01 上传：登录后分享，填写店名、分类、地址、GCJ-02 坐标和公开授权，人工审核后公开；媒体、优缺点、菜单价格选填。","02 删除：更多 → 我的投稿 → 删除自己的投稿。公共地点撤回，GitHub 历史和他人副本需另行联系管理员处理。","03 反馈：更多 → 意见反馈，支持手动 Issue 与自动反馈，先遮挡个人隐私。","04 查看他人内容：地点档案可搜索筛选，地图标记与列表打开相同详情，未配置 API 也可查看列表。","05 设置 API：顶部设置，按离线 README 教程申请 Android Key 并填写；个人大量使用可能缴费，Key 加密保存在本机，不进公开数据，源码欢迎审查。","06 评分：详情选 1～5 分，文字可选；北京时间每天，同一 IP 或随机设备标识对一个地点一次，可评多个地点。服务端只存每日 HMAC，不采集硬件指纹。共享网络可能误限，清数据并换网络可绕过，无法绝对刷票。").forEach{box.addView(text(it))}
+        listOf("01 上传：登录后分享，填写店名、分类、地址、GCJ-02 坐标和公开授权，人工审核后公开；媒体、优缺点、菜单价格选填。","02 删除：更多 → 我的投稿 → 删除自己的投稿。公共地点撤回，GitHub 历史和他人副本需另行联系管理员处理。","03 反馈：更多 → 意见反馈，支持手动 Issue 与自动反馈，先遮挡个人隐私。","04 查看他人内容：地点档案可搜索筛选，地图标记与列表打开相同详情，未配置 API 也可查看列表。","05 地图与导航：公共底图或外部地图无需个人 API；设备定位另行授权，详情支持高德/百度路线。高级个人 Key 可选且加密存在本机，详细申请教程仍可离线查看。","06 评分：详情选 1～5 分，文字可选；北京时间每天，同一 IP 或随机设备标识对一个地点一次，可评多个地点。服务端只存每日 HMAC，不采集硬件指纹。共享网络可能误限，清数据并换网络可绕过，无法绝对刷票。").forEach{box.addView(text(it))}
         AlertDialog.Builder(this).setView(ScrollView(this).apply{addView(box)}).setPositiveButton("知道了 / 跳过",null).setOnDismissListener{prefs.edit().putBoolean("guide_v1",true).apply()}.show()
     }
     private fun loadReviews(id:String,box:LinearLayout,before:String="",append:Boolean=false){
@@ -444,8 +463,8 @@ class MainActivity : Activity() {
         form.addView(ArkUi.section(this,"02 / 地图位置","把地点标清楚","高德 GCJ-02 坐标 · 请核对实际门店"))
         val address = field(form,"门店地址 *"); addressInput=address; autoAddress?.let {address.setText(it)}; lngInput = field(form,"高德经度 *","例如 110.299121"); latInput = field(form,"高德纬度 *","例如 25.274215")
         selected?.let { lngInput!!.setText(it.longitude.toString()); latInput!!.setText(it.latitude.toString()) }
-        form.addView(button("在地图上选点") { if(amap==null)toast("请先启用并配置高德地图") else { picking=true; setMode("map");submitDialog?.hide(); toast("请点击地图上的门店位置") } })
-        form.addView(button("◎ 定位并自动填写地址") { browseLocating=false;locatingForForm=true; locate() })
+        form.addView(button("在地图上选点") { if(publicMapMode){toast("公共底图仅浏览，可手填坐标或切换个人 API");return@button};if(amap==null)toast("请先启用并配置高德地图") else { picking=true; setMode("map");submitDialog?.hide(); toast("请点击地图上的门店位置") } })
+        form.addView(button("◎ 定位并自动填写地址") { if(publicMapMode){toast("投稿可手填坐标，自动填写请使用高级个人 API");return@button};externalLocating=false;browseLocating=false;locatingForForm=true; locate() })
         val price=field(form,"人均价格（元，选填）").apply{inputType=android.text.InputType.TYPE_CLASS_NUMBER or android.text.InputType.TYPE_NUMBER_FLAG_DECIMAL}
         val hours=field(form,"营业时间（选填）");val tags=field(form,"标签（逗号分隔，最多 8 个）")
         val description = field(form,"推荐理由（选填）",multiline=true); val directions = field(form,"如何前往（选填）",multiline=true)
@@ -496,7 +515,7 @@ class MainActivity : Activity() {
         super.onActivityResult(requestCode,resultCode,data)
         if(requestCode==301&&resultCode==RESULT_OK){
             mapView?.onPause();mapView?.onDestroy();mapView=null;amap=null
-            showMapEmpty();if(prefs.getBoolean("map_consent",false)&&!store.amapAndroidKey.isNullOrBlank()){initMap(null)};return
+            showMapEmpty();if(prefs.getBoolean("map_consent",false)&&activeMapKey()!=null){initMap(null)};loadPublicMapConfig();if(data?.getBooleanExtra("externalPosition",false)==true)locateExternal();return
         }
         if(requestCode==302){val archive=exportData;exportData=null;if(resultCode==RESULT_OK&&data?.data!=null&&archive!=null){val uri=data.data!!;async{contentResolver.openOutputStream(uri)!!.bufferedWriter().use{it.write(archive)};runOnUiThread{toast("已导出完整公开地点与媒体引用，不含个人 API")}}};return}
         if(requestCode==FeedbackController.PICK_SCREENSHOTS){feedback.onPicked(resultCode,data);return}; if((requestCode!=100&&requestCode!=101)||resultCode!=RESULT_OK)return
@@ -513,20 +532,20 @@ class MainActivity : Activity() {
         } }
     }
     private fun locate() {
-        if(amap==null){settings();return}
+        if(amap==null&&!externalLocating){settings();return}
         if(checkSelfPermission(Manifest.permission.ACCESS_FINE_LOCATION)!=PackageManager.PERMISSION_GRANTED && checkSelfPermission(Manifest.permission.ACCESS_COARSE_LOCATION)!=PackageManager.PERMISSION_GRANTED){requestPermissions(arrayOf(Manifest.permission.ACCESS_FINE_LOCATION,Manifest.permission.ACCESS_COARSE_LOCATION),200);return}
         stopLocation()
         val manager=getSystemService(LOCATION_SERVICE) as LocationManager;locationManager=manager
-        val provider=when {manager.isProviderEnabled(LocationManager.GPS_PROVIDER)&&checkSelfPermission(Manifest.permission.ACCESS_FINE_LOCATION)==PackageManager.PERMISSION_GRANTED->LocationManager.GPS_PROVIDER;manager.isProviderEnabled(LocationManager.NETWORK_PROVIDER)->LocationManager.NETWORK_PROVIDER;else->{browseLocating=false;locatingForForm=false;toast("请开启系统定位，或手动选点");return}}
+        val provider=when {manager.isProviderEnabled(LocationManager.GPS_PROVIDER)&&checkSelfPermission(Manifest.permission.ACCESS_FINE_LOCATION)==PackageManager.PERMISSION_GRANTED->LocationManager.GPS_PROVIDER;manager.isProviderEnabled(LocationManager.NETWORK_PROVIDER)->LocationManager.NETWORK_PROVIDER;else->{externalLocating=false;browseLocating=false;locatingForForm=false;toast("请开启系统定位，或手动选点");return}}
         val listener=object:LocationListener {
-            override fun onLocationChanged(location:Location){stopLocation();val point=CoordinateConverter(this@MainActivity).from(CoordinateConverter.CoordType.GPS).coord(LatLng(location.latitude,location.longitude)).convert();amap?.animateCamera(CameraUpdateFactory.newLatLngZoom(point,17f));if(browseLocating){browseLocating=false;browseOrigin=point;sortOrder="距离";renderPlaces();toast("已按直线距离排序，可在筛选中设置范围；位置不会上传");return};selected=point
+            override fun onLocationChanged(location:Location){stopLocation();if(externalLocating){externalLocating=false;Navigation.position(this@MainActivity,location.longitude,location.latitude,location.accuracy);return};val point=CoordinateConverter(this@MainActivity).from(CoordinateConverter.CoordType.GPS).coord(LatLng(location.latitude,location.longitude)).convert();amap?.animateCamera(CameraUpdateFactory.newLatLngZoom(point,17f));if(browseLocating){browseLocating=false;browseOrigin=point;sortOrder="距离";renderPlaces();toast("已按直线距离排序，可在筛选中设置范围；位置不会上传");return};selected=point
                 if(locatingForForm){locatingForForm=false;lngInput?.setText(point.longitude.toString());latInput?.setText(point.latitude.toString())}else if(store.token!=null){share()}
                 if(store.token!=null)resolveAddress(point) else toast("已定位，请登录后自动填写投稿")}
             @Deprecated("Legacy callback") override fun onStatusChanged(provider:String?,status:Int,extras:Bundle?){}
             override fun onProviderEnabled(provider:String){}
             override fun onProviderDisabled(provider:String){}
         };locationListener=listener
-        try { manager.requestLocationUpdates(provider,0L,0f,listener,Looper.getMainLooper());mainHandler.postDelayed({if(locationListener===listener){stopLocation();browseLocating=false;locatingForForm=false;toast("定位超时，可重试或手动选点")}},15000) } catch (_: SecurityException){stopLocation();browseLocating=false;locatingForForm=false;toast("定位权限不可用")}
+        try { manager.requestLocationUpdates(provider,0L,0f,listener,Looper.getMainLooper());mainHandler.postDelayed({if(locationListener===listener){stopLocation();externalLocating=false;browseLocating=false;locatingForForm=false;toast("定位超时，可重试或手动选点")}},15000) } catch (_: SecurityException){stopLocation();externalLocating=false;browseLocating=false;locatingForForm=false;toast("定位权限不可用")}
     }
     private fun resolveAddress(point:LatLng){
         val key=store.amapRestKey
@@ -537,7 +556,7 @@ class MainActivity : Activity() {
         }catch(e:Exception){runOnUiThread{toast("坐标已填写，地址请手动填写："+e.message)}}}
     }
     private fun stopLocation(){locationListener?.let { locationManager?.removeUpdates(it) };locationListener=null}
-    override fun onRequestPermissionsResult(requestCode:Int,permissions:Array<out String>,grantResults:IntArray){super.onRequestPermissionsResult(requestCode,permissions,grantResults);if(requestCode==200){if(grantResults.any{it==PackageManager.PERMISSION_GRANTED})locate()else {browseLocating=false;locatingForForm=false;toast("未授予定位权限，仍可手动选点")}}}
+    override fun onRequestPermissionsResult(requestCode:Int,permissions:Array<out String>,grantResults:IntArray){super.onRequestPermissionsResult(requestCode,permissions,grantResults);if(requestCode==200){if(grantResults.any{it==PackageManager.PERMISSION_GRANTED})locate()else {externalLocating=false;browseLocating=false;locatingForForm=false;toast("未授予定位权限，仍可手动选点")}}}
     @Deprecated("Framework back navigation")
     override fun onBackPressed(){if(picking&&submitDialog!=null){picking=false;submitDialog?.show();mapStatus.text="高德地图 · 个人 API"}else super.onBackPressed()}
     override fun onResume(){super.onResume();mapView?.onResume();if(::updater.isInitialized)updater.resumeInstall()}

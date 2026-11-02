@@ -217,15 +217,15 @@ node -e "process.stdout.write(require('node:crypto').randomBytes(48).toString('b
 
 SUBMISSION_BOT_TOKEN 是可选兼容项，默认不要创建。如果组织策略确实需要独立机器人 PAT，选定主仓库，只给 Contents write 和 Pull requests write，并作为主仓库 Actions Secret 保存，不交给 Worker 或普通用户。
 
-## 9. 高德地图：个人在本机申请与填写
+## 9. 高德地图：开发者公共底图与可选个人模式
 
-完整逐步教程见 [个人高德 API 申请与使用](../web/public/amap-guide.md)，Web 内打开“地图 API”→教程；Android 内置同一份离线教程。
+普通查看和外部导航无需个人 Key。开发者公共底图的配置、域名/签名限制及额度边界见 [公共地图部署说明](PUBLIC-MAPS-2026-11.md)。完整个人申请教程仍在 [README](../web/public/amap-guide.md)，双端“地图与导航”可打开，Android 内置离线版本。以下个人配置仅为高级选项。
 
 - Web：个人填写 Web 端（JSAPI）Key 与配套 securityJsCode，默认长期保存在本浏览器 localStorage，可选仅当前标签页。
 - Android：个人在应用内填写 Android Key，使用设置页复制的包名、当前签名 SHA-1 申请；可选填写 Web 服务 Key 以自动解析地址。系统密钥库加密保存。
-- 地图凭据直接供高德认证，不上传本项目服务器、GitHub、投稿或数据导出。前端本地存储不等于不可读取；细节见教程。
+- 个人地图凭据直接供高德认证，不上传本项目服务器、GitHub、投稿或数据导出。开发者公共Web/Android应用标识会按需返回客户端，公共安全密钥始终留在服务器。前端个人存储不等于不可读取；细节见教程。
 - 大量使用、超额或收费服务可能需要缴费，请自行关注高德账户用量、价格和授权。
-- Worker 不再读取 AMAP_WEB_KEY、AMAP_SECURITY_JS_CODE、AMAP_REST_KEY；Android 不再将 AMAP_ANDROID_KEY 打包进 APK。旧变量可由管理员清理，旧公共代理与地址接口返回迁移提示。
+- 旧 AMAP_WEB_KEY、AMAP_SECURITY_JS_CODE、AMAP_REST_KEY 不会自动复用，避免意外公开旧个人凭据。公共模式须显式配置独立的 AMAP_PUBLIC_*；只有底图认证与单点转换代理开放，其余路线/搜索/地址解析不代理。代理有小时/IP和每日总量限制，但不能代替高德平台限额。
 
 ## 10. Cloudflare：选择一种自动部署方式
 
